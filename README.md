@@ -12,4 +12,4 @@ shiny::runGitHub(repo = "tiffanymtang/Shiny-Apps", subdir = "ShinyEDA")
 
 or visit https://tiffanymtang.shinyapps.io/ShinyEDA/.
 
-![](./figures/ShinyEDA/ShinyEDA.gif)
+![](./figures/ShinyEDA.gif)

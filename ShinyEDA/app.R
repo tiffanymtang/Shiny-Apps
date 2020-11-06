@@ -783,6 +783,8 @@ server <- function(input, output, session) {
     updatePickerInput(session, "vars_pairs", choices = vars)
     updatePickerInput(session, "vars_summary", choices = num_vars)
     updatePickerInput(session, "vars_cor", choices = num_vars)
+    updatePickerInput(session, "vars_heatmap", choices = vars)
+    updatePickerInput(session, "sample_heatmap", choices = rownames(data))
     updateSliderInput(session, "p_cor",
                       value = 0, min = 0, max = length(num_vars))
     updateSliderInput(session, "p_cor",

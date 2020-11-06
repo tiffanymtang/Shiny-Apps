@@ -789,6 +789,10 @@ server <- function(input, output, session) {
                       value = 0, min = 0, max = length(num_vars))
     updateSliderInput(session, "p_cor",
                       value = 0, min = 0, max = nrow(data))
+    updateSliderInput(session, "p_heatmap", 
+                      value = 0, min = 0, max = ncol(data))
+    updateSliderInput(session, "p_heatmap_rows",
+                      value = 0, min = 0, max = nrow(data))
     updatePickerInput(session, "color1", choices = c("None", vars))
     updatePickerInput(session, "color_pairs", choices = vars)
     updatePickerInput(session, "color_pca", choices = vars)

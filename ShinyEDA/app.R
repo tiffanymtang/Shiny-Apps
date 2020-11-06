@@ -251,6 +251,15 @@ ui <- fluidPage(
           sliderInput(
             "p_heatmap_rows", "Number of Rows", value = 0, min = 0, max = 150
           )
+        ), 
+        
+        # centering and scaling options
+        prettyCheckboxGroup(
+          "heatmap_options", "Additional Options:",
+          choices = c("Center", "Scale"),
+          selected = NULL, 
+          status = "info", animation = "jelly", 
+          icon = icon("check"), bigger = T
         )
       ),
     
@@ -1246,6 +1255,23 @@ server <- function(input, output, session) {
         data <- data[keep_rows, ]
       }
     }
+    
+    xcenter <- FALSE
+    xscale <- FALSE
+    if ("Center" %in% input$heatmap_options) {
+      xcenter <- TRUE
+    }
+    if ("Scale" %in% input$heatmap_options) {
+      xscale <- TRUE
+    }
+    if (xcenter | xscale) {
+      numeric_cols <- purrr::map_lgl(data, is.numeric)
+      if (any(numeric_cols)) {
+        data[, numeric_cols] <- scale(data[, numeric_cols], 
+                                      center = xcenter, scale = xscale)
+      }
+    }
+    
     data
   })
   

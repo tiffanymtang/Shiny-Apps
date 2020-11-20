@@ -1,13 +1,14 @@
-# shiny packages
+# shiny/html packages
 library(shiny)
 library(shinythemes)
 library(shinyWidgets)
 library(shinycssloaders)
 library(shinyjs)
+library(htmltools)
 # useful R packages
 library(R.utils)
 library(tidyverse)
-library(broom)
+library(rlang)
 # plotting packages
 library(GGally)
 library(ggpubr)
@@ -16,6 +17,7 @@ library(knitr)
 library(kableExtra)
 library(DT)
 library(plotly)
+library(skimr)
 
 sourceDirectory("./functions/", modifiedOnly = F, recursive = F) 
 
@@ -348,7 +350,33 @@ ui <- fluidPage(
           h4(textOutput("na_output")),
           h4(textOutput("const_output")),
           
+          # data summary tables  ----------------------------------------------
+          DTOutput("dtypes_table"),
+          br(),
+          dropdown(
+            # table options
+            numericInput(
+              "digits_summary", "Digits",
+              value = 1, min = 0, max = NA, step = 1
+            ),
+            prettyRadioButtons(
+              "sigfig_summary", "Use Significant Digits",
+              choices = c("Yes", "No"), selected = "No",
+              status = "info", animation = "jelly", icon = icon("check")
+            ),
+            
+            # button settings
+            circle = TRUE, status = "default", size = "sm",
+            icon = icon("gear"), width = "300px", style = "material-circle",
+            tooltip = tooltipOptions(title = "Click to see inputs")
+          ),
+          uiOutput("summary_tables"),
+          
           # data summary: dropdown panel --------------------------------------
+          textOutput("placeholder15"),
+          tags$head(
+            tags$style("#placeholder15{font-size: 3px; color: white}")
+          ),
           dropdown(
             # type of plot
             radioGroupButtons(
@@ -393,8 +421,6 @@ ui <- fluidPage(
           tags$head(
             tags$style("#placeholder11{font-size: 3px; color: white}")
           ),
-          h4(textOutput("mean_output")),
-          h4(textOutput("var_output")),
           plotlyOutput("means", height = "100%"),
           textOutput("placeholder12"),
           tags$head(
@@ -837,21 +863,196 @@ server <- function(input, output, session) {
            sum(apply(as.data.frame(data[, sapply(data, class) == "numeric"]), 
                      2, var) == 0, na.rm = T))
   })
-  output$mean_output <- renderText({
-    req(length(input$vars_summary) == 1)
-    data <- dataInput() %>%
-      select(input$vars_summary) 
-    req(is.numeric(data[, 1]))
-    paste0("Mean of ", input$vars_summary, ": ", 
-           formatC(colMeans(data, na.rm = T), digits = 3, format = "g"))
+  
+  ### data summary: table outputs --------------------------------------------
+  skimData <- reactive({
+    data <- dataInput()
+    skim(data)
   })
-  output$var_output <- renderText({
-    req(length(input$vars_summary) == 1)
-    data <- dataInput() %>%
-      select(input$vars_summary) 
-    req(is.numeric(data[, 1]))
-    paste0("Variance of ", input$vars_summary, ": ",
-           formatC(apply(data, 2, var, na.rm = T), digits = 3, format = "g"))
+  
+  output$dtypes_table <- renderDT({
+    skim_out <- skimData()
+    dtypes_df <- data.frame(table(skim_out$skim_type)) %>%
+      mutate(Var1 = capitalize(Var1)) %>%
+      column_to_rownames("Var1") %>%
+      t()
+    DT::datatable(dtypes_df, rownames = F,
+                  caption = tags$caption(
+                    style = "color: black; font-weight: bold; font-size: 125%",
+                    "Frequency of Column Types"
+                  ), 
+                  options = list(
+                    columnDefs = list(list(className = "dt-center",
+                                           targets = "_all")),
+                    dom = "t"
+                  ))
+  })
+  
+  skimWrapper <- function(skim_out, dtype, digits, sigfig) {
+    if (sigfig  == "Yes") {
+      sigfig <- "g"
+    } else {
+      sigfig <- "f"
+    }
+    
+    skim_df <- skim_out %>%
+      filter(skim_type == dtype) %>%
+      mutate(complete_rate = formatC((1 - complete_rate) * 100, digits = digits,
+                                     format = sigfig, flag = "#"))
+    
+    keep_cols <- c("Variable Name" = "skim_variable",
+                   "# Missing" = "n_missing",
+                   "% Missing" = "complete_rate")
+    
+    if (dtype == "factor") {
+      skim_df <- skim_df %>%
+        mutate(factor.ordered = capitalize(tolower(factor.ordered)))
+      keep_cols <- c(keep_cols,
+                     "Ordered Factor" = "factor.ordered",
+                     "# Unique Factors" = "factor.n_unique",
+                     "Top Factor Counts" = "factor.top_counts")
+    } else if (dtype == "numeric") {
+      skim_df <- skim_df %>%
+        mutate(numeric.mean = formatC(numeric.mean, digits = digits, 
+                                      format = sigfig, flag = "#"),
+               numeric.sd = formatC(numeric.sd, digits = digits, 
+                                    format = sigfig, flag = "#"))
+      keep_cols <- c(keep_cols,
+                     "Mean" = "numeric.mean",
+                     "SD" = "numeric.sd",
+                     "Minimum" = "numeric.p0",
+                     "Q1" = "numeric.p25",
+                     "Median" = "numeric.p50",
+                     "Q3" = "numeric.p75",
+                     "Maximum" = "numeric.p100",
+                     "Histogram" = "numeric.hist")
+    } else if (dtype == "character") {
+      keep_cols <- c(keep_cols,
+                     "# Empty" = "character.empty",
+                     "Min Length" = "character.min",
+                     "Max Length" = "character.max",
+                     "# Unique" = "character.n_unique",
+                     "Whitespace" = "character.whitespace")
+    } else if (dtype == "logical") {
+      skim_df <- skim_df %>%
+        mutate(logical.count = str_replace(str_replace(logical.count, 
+                                                       "FAL", "False"),
+                                           "TRU", "True"))
+      keep_cols <- c(keep_cols,
+                     "Mean" = "logical.mean",
+                     "Count" = "logical.count")
+    } else if (dtype == "complex") {
+      keep_cols <- c(keep_cols, "Mean" = "complex.mean")
+    } else if ((dtype == "Date") | (dtype == "POSIXct")) {
+      keep_cols <- c(keep_cols,
+                     "Minimum" = paste0(dtype, ".min"),
+                     "Maximum" = paste0(dtype, ".max"),
+                     "Median" = paste0(dtype, ".median"),
+                     "# Unique" = paste0(dtype, ".n_unique"))
+    }
+    
+    grouped <- !identical(attr(skim_out, "groups"), list())
+    if (grouped) {
+      keep_cols <- c(keep_cols[1],
+                     map_chr(attr(skim_out, "groups"), ~as_string(.x)),
+                     keep_cols[2:length(keep_cols)])
+    }
+    
+    if (nrow(skim_df) > 10) {
+      dt_dom <- "tip"
+    } else {
+      dt_dom <- "t"
+    }
+    dt_out <- DT::datatable(skim_df %>% select(keep_cols),
+                            caption = tags$caption(
+                              style = "color: black; font-weight: bold; font-size: 125%",
+                              paste("Summary of", capitalize(dtype),
+                                    "Variables")
+                            ), 
+                            rownames = F,
+                            options = list(
+                              columnDefs = list(list(className = "dt-center",
+                                                     targets = "_all")),
+                              dom = dt_dom,
+                              scrollX = TRUE
+                            ))
+    return(dt_out)
+  }
+  
+  output$factor_table <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "factor") > 0)
+    skimWrapper(skim_out, "factor", 
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$numeric_table <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "numeric") > 0)
+    skimWrapper(skim_out, "numeric",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$character_table <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "character") > 0)
+    skimWrapper(skim_out, "character",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$logical_table <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "logical") > 0)
+    skimWrapper(skim_out, "logical",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$complex_table <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "complex") > 0)
+    skimWrapper(skim_out, "complex",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$Date <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "Date") > 0)
+    skimWrapper(skim_out, "Date",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$POSIXct <- renderDT({
+    skim_out <- skimData()
+    req(sum(skim_out$skim_type == "POSIXct") > 0)
+    skimWrapper(skim_out, "POSIXct",
+                input$digits_summary, input$sigfig_summary)
+  })
+  
+  output$summary_tables <- renderUI({
+    skim_out <- skimData()
+    out <- NULL
+    if (sum(skim_out$skim_type == "numeric") > 0) {
+      out <- c(out, DTOutput("numeric_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "factor") > 0) {
+      out <- c(out, DTOutput("factor_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "character") > 0) {
+      out <- c(out, DTOutput("character_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "logical") > 0) {
+      out <- c(out, DTOutput("logical_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "complex") > 0) {
+      out <- c(out, DTOutput("complex_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "complex") > 0) {
+      out <- c(out, DTOutput("Date_table"), list(br()))
+    }
+    if (sum(skim_out$skim_type == "POSIXct") > 0) {
+      out <- c(out, DTOutput("POSIXct_table"), list(br()))
+    }
+    fluidPage(out)
   })
   
   ### data summary: plot outputs --------------------------------------------
@@ -1472,6 +1673,8 @@ server <- function(input, output, session) {
   output$placeholder12 <- renderText({return("placeholder")})
   output$placeholder13 <- renderText({return("placeholder")})
   output$placeholder14 <- renderText({return("placeholder")})
+  output$placeholder15 <- renderText({return("placeholder")})
+  output$placeholder16 <- renderText({return("placeholder")})
   
   ### output options ---------------------------------------------------------
   outputOptions(output, "fileType", suspendWhenHidden = FALSE)  

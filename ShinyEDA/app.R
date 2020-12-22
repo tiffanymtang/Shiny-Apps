@@ -9,65 +9,51 @@ library(htmltools)
 library(R.utils)
 library(tidyverse)
 library(rlang)
+library(NMF)
+library(pheatmap)
+library(Rtsne)
+library(umap)
 # plotting packages
 library(GGally)
 library(ggpubr)
+library(plotly)
 # table packages
 library(knitr)
 library(kableExtra)
 library(DT)
-library(plotly)
 library(skimr)
 
 sourceDirectory("./functions/", modifiedOnly = F, recursive = F) 
 
+# starter data set
 data(iris)
 data <- iris
 
-options(shiny.maxRequestSize = 100 * 1024^2)  # increase max file size to 30Mb
-
-css <- HTML(" 
-.dropdown-toggle {
-  color: #777;
-  background-color: #FFFFFF;
-  border: 1px solid #CCCCCC;
-}
-
-.dropdown-toggle:hover {
-  color: #777;
-  background-color: #FFFFFF;
-  border: 1px solid #566566;
-}
-
-.open>.dropdown-toggle.btn-default, .open>.dropdown-toggle.btn-default:hover {
-  color: #777;
-  background-color: #FFFFFF;
-  border: 2px solid #566566;
-}
-
-.bs-searchbox .form-control {
-  border: 1px solid #DCE4EC;
-}
-
-.btn-default:focus {
-  color: #777;
-  background-color: #FFFFFF;
-}
-")
+# increase max file size to 30Mb
+options(shiny.maxRequestSize = 100 * 1024^2)  
 
 ###################################### UI ######################################
 # Define UI for app
 ui <- fluidPage(
-  tags$head(tags$style(css)),
+  includeCSS("www/custom_style.css"),
   theme = shinytheme("flatly"),
+  useShinyjs(),
+  # setBackgroundColor("#ecf0f1"),
   # theme = shinytheme("cerulean"),
   # shinythemes::themeSelector(),
-  titlePanel("Exploratory Data Analysis"),
+  titlePanel(
+    tagList(
+      div(HTML('<i class="fas fa-search"></i> &nbsp; <b> Shiny Exploratory Data Analysis </b> &nbsp; <button class="action-button bttn bttn-simple bttn-sm bttn-default bttn-no-outline" id="collapse_sidebar" type="button"><i class="fa fa-bars"></i></button>'),
+          id = "title")
+    ),
+    windowTitle = "ShinyEDA"
+  ),
+  tags$div(class = "smallwhitespace", tags$p("whitespace")),
   
   sidebarLayout(
     # sidebar panel -----------------------------------------------------------
-    sidebarPanel(id = "side-panel",
-                 
+    sidebarPanel(id = "side-panel", width = 3,
+                 tags$style(HTML(".well {min-height: 690px;}")),
       # file upload -----------------------------------------------------------
       fileInput(
         inputId = "file", label = "File Upload (.csv, .rds, .txt)", 
@@ -76,7 +62,7 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "output.fileType == '.txt'",
         prettyRadioButtons("sep", "Separator",
-                           choices = c("Comma" = ",",
+                           choices = c("Comma" = ",", 
                                        "Semicolon" = ";",
                                        "Tab" = "\t"),
                            icon = icon("check"),
@@ -92,23 +78,6 @@ ui <- fluidPage(
       
       hr(),
       
-      # data summary: variable inputs ----------------------------------------
-      conditionalPanel(
-        "input.tab == 'summary'",
-        # variable inputs
-        pickerInput(
-          "vars_summary", "Variables:",
-          choices = colnames(data)[sapply(data, class) == "numeric"],
-          multiple = TRUE,
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         `selected-text-format` = "count > 3",
-                         title = "Nothing selected",
-                         multipleSeparator = ", ",
-                         `actions-box` = TRUE)
-        )
-      ),
-    
       # basic plot: variable inputs -------------------------------------------
       conditionalPanel(
         "input.tab == 'basic'",
@@ -160,34 +129,109 @@ ui <- fluidPage(
         )
       ),
       
-      # pca plot: variable inputs -------------------------------------------
+      # dimension reduction: variable inputs -----------------------------------
       conditionalPanel(
-        "input.tab == 'pca'",
+        "input.tab == 'dimred'",
+        
+        # dimension reduction technique
+        prettyRadioButtons(
+          "dimred_type", "Dimension Reduction Method",
+          choices = c("PCA", "NMF", "tSNE", "UMAP"),
+          status = "info", animation = "jelly", 
+          icon = icon("check"), bigger = TRUE, #inline = TRUE
+        ),
+        
         # variable inputs
         pickerInput(
-          "pcs", "PCs:",
-          choices = 1:10,
-          selected = 1:2,
+          "vars_dimred", "Variables included:",
+          choices = colnames(data)[sapply(data, class) == "numeric"],
           multiple = TRUE,
-          options = list(size = 5,
-                         `selected-text-format` = "count > 3",
-                         multipleSeparator = ", ")
-        ),
-        pickerInput(
-          "color_pca", "Color by: (max 2)",
-          choices = colnames(data),
-          multiple = TRUE,
+          selected = colnames(data)[sapply(data, class) == "numeric"],
           options = list(`live-search` = TRUE,
                          size = 5,
+                         `selected-text-format` = "count > 3",
+                         title = "Nothing selected",
                          multipleSeparator = ", ",
-                         `max-options` = 2)
+                         `actions-box` = TRUE)
         ),
-        prettyCheckboxGroup(
-          "pca_options", "PCA Options:",
-          choices = c("Center", "Scale"),
-          selected = "Center", 
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = T
+        
+        # pca options ---------------------------------------------------------
+        conditionalPanel(
+          "input.dimred_type == 'PCA'",
+          pickerInput(
+            "pcs", "PCs:",
+            choices = 1:10,
+            selected = 1:2,
+            multiple = TRUE,
+            options = list(size = 5,
+                           `selected-text-format` = "count > 3",
+                           multipleSeparator = ", ")
+          ),
+          pickerInput(
+            "color_pca", "Color by: (max 2)",
+            choices = colnames(data),
+            multiple = TRUE,
+            options = list(`live-search` = TRUE,
+                           size = 5,
+                           multipleSeparator = ", ",
+                           `max-options` = 2)
+          ),
+          prettyCheckboxGroup(
+            "pca_options", "PCA Options:",
+            choices = c("Center", "Scale"),
+            selected = "Center", 
+            status = "info", animation = "jelly", 
+            icon = icon("check"), bigger = T
+          )
+        ),
+        
+        # non-pca options ----------------------------------------------------
+        conditionalPanel(
+          "input.dimred_type !== 'PCA'",
+          pickerInput(
+            "color_dimred", "Color by:",
+            choices = colnames(data),
+            selected = NULL,
+            options = list(`live-search` = TRUE,
+                           size = 5,
+                           title = "Nothing selected")
+          )
+        ),
+        
+        # tsne options -------------------------------------------------------
+        conditionalPanel(
+          "input.dimred_type == 'tSNE'",
+          numericInput("perplexity_tsne", "Perplexity", value = 30,
+                       min = 1, step = 5),
+          numericInput("maxiter_tsne", "Max. # Iterations", value = 1000,
+                       min = 1, step = 100),
+          materialSwitch("pca_tsne", "Perform PCA before tSNE", value = TRUE,
+                         status = "info"),
+          conditionalPanel(
+            "input.pca_tsne",
+            prettyCheckboxGroup(
+              "pca_tsne_options", "PCA Options:",
+              choices = c("Center", "Scale"),
+              selected = "Center", 
+              status = "info", animation = "jelly", 
+              icon = icon("check"), bigger = T
+            )
+          )
+        ),
+        
+        # umap options -------------------------------------------------------
+        conditionalPanel(
+          "input.dimred_type == 'UMAP'",
+          numericInput("perplexity_umap", "# Neighbors", value = 15,
+                       min = 1, step = 1),
+          numericInput("maxiter_umap", "Max. # Iterations", value = 200,
+                       min = 1, step = 100),
+        ),
+        
+        # nmf options -------------------------------------------------------
+        conditionalPanel(
+          "input.dimred_type == 'NMF'",
+          numericInput("rank_nmf", "NMF Rank", value = 3, min = 1, step = 1)
         )
       ),
       
@@ -329,7 +373,7 @@ ui <- fluidPage(
     ),
     
     # main panel -----------------------------------------------------------
-    mainPanel(
+    mainPanel(id = "main-panel", width = 9,
       tabsetPanel(
         type = "tabs",
         id = "tab",
@@ -337,22 +381,20 @@ ui <- fluidPage(
         tabPanel(
           "Data Summary", value = "summary",
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder7"),
-          tags$head(
-            tags$style("#placeholder7{font-size: 3px; color: white}")
-          ),
-          
           # data summary text -----------------------------------------------
           br(),
-          h4(textOutput("n_output")),
-          h4(textOutput("p_output")),
-          h4(textOutput("na_output")),
-          h4(textOutput("const_output")),
+          fluidRow(column(6, 
+                          h4(htmlOutput("text_summary")) %>%
+                            tagAppendAttributes(class = "box-border"),
+                          tags$head(tags$style("#text_summary{line-height: 1.5em; min-height: 135px; display: flex; align-items: center;}"))),
+                   column(6, 
+                          uiOutput("dtypes") %>%
+                            tagAppendAttributes(class = "box-border") %>%
+                            withSpinner(color = "#18bc9c"))),
+          
+          hr(style = "border-top: 1px solid #23313E;"),
           
           # data summary tables  ----------------------------------------------
-          DTOutput("dtypes_table"),
-          br(),
           dropdown(
             # table options
             numericInput(
@@ -370,13 +412,13 @@ ui <- fluidPage(
             icon = icon("gear"), width = "300px", style = "material-circle",
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
-          uiOutput("summary_tables"),
           
-          # data summary: dropdown panel --------------------------------------
-          textOutput("placeholder15"),
-          tags$head(
-            tags$style("#placeholder15{font-size: 3px; color: white}")
-          ),
+          uiOutput("summary_tables") %>% 
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
+          
+          # data summary plot: dropdown panel --------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # type of plot
             radioGroupButtons(
@@ -385,6 +427,20 @@ ui <- fluidPage(
                           `<img src="chart-density-white.png" width=15px height=13px><div class='jhr'></div></img>` = "density",
                           `<img src="chart-boxplot-white.png" width=15px height=13px><div class='jhr'></div></img>` = "boxplot"),
               justified = TRUE
+            ),
+            
+            # variable inputs
+            pickerInput(
+              "vars_summary", "Variables:",
+              choices = colnames(data)[sapply(data, class) == "numeric"],
+              selected = colnames(data)[sapply(data, class) == "numeric"],
+              multiple = TRUE,
+              options = list(`live-search` = TRUE,
+                             size = 5,
+                             `selected-text-format` = "count > 3",
+                             title = "Nothing selected",
+                             multipleSeparator = ", ",
+                             `actions-box` = TRUE)
             ),
             
             # graph settings
@@ -401,9 +457,12 @@ ui <- fluidPage(
               )
             ),
             
-            numericInput(
-              "height_summary", "Plot Height (px)", value = 400
+            textInput("bg_summary", "Background color", value = "grey98"),
+            prettyCheckbox(
+              "grid_summary", "Show grid lines", value = TRUE,
+              status = "info", animation = "jelly", icon = icon("check")
             ),
+            numericInput("height_summary", "Plot Height (px)", value = 400),
             
             # button settings
             circle = TRUE, status = "default", size = "sm",
@@ -412,34 +471,25 @@ ui <- fluidPage(
           ),
           
           # data summary plots ----------------------------------------------
-          textOutput("placeholder10"),
-          tags$head(
-            tags$style("#placeholder10{font-size: 3px; color: white}")
-          ),
-          plotlyOutput("dist", height = "100%"),
-          textOutput("placeholder11"),
-          tags$head(
-            tags$style("#placeholder11{font-size: 3px; color: white}")
-          ),
-          plotlyOutput("means", height = "100%"),
-          textOutput("placeholder12"),
-          tags$head(
-            tags$style("#placeholder12{font-size: 3px; color: white}")
-          ),
-          plotlyOutput("variances", height = "100%")
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          uiOutput("dist") %>%
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
+          uiOutput("means") %>%
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
+          uiOutput("variances") %>%
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
+          br()
         ),
         
         # tab: Data Table ---------------------------------------------------
         tabPanel(
           "Data Table", value = "data_tab",
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder6"),
-          tags$head(
-            tags$style("#placeholder6{font-size: 3px; color: white}")
-          ),
-          
           # data table: dropdown panel------------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # table options
             numericInput(
@@ -448,26 +498,22 @@ ui <- fluidPage(
             ),
             
             # button settings
-            circle = TRUE, status = "default", size = "sm",
+            circle = TRUE, status = "default", size = "sm", 
             icon = icon("gear"), width = "300px", style = "material-circle",
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
           # data table --------------------------------------------------------
           br(),
-          DTOutput("table")
+          DTOutput("table")  %>% 
+            withSpinner(color = "#18bc9c")
         ),
         # tab: Basic Plots ---------------------------------------------------
         tabPanel(
           "Basic Plots", value = "basic",
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder0"),
-          tags$head(
-            tags$style("#placeholder0{font-size: 3px; color: white}")
-          ),
-          
           # basic plot: dropdown panel -----------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # type of plot
             radioGroupButtons(
@@ -503,6 +549,11 @@ ui <- fluidPage(
               )
             ),
             
+            textInput("bg_basic", "Background color", value = "grey98"),
+            prettyCheckbox(
+              "grid_basic", "Show grid lines", value = TRUE,
+              status = "info", animation = "jelly", icon = icon("check")
+            ),
             numericInput(
               "height_basic", "Plot Height (px)", value = 400
             ),
@@ -513,15 +564,10 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder1"),
-          tags$head(
-            tags$style("#placeholder1{font-size: 4px; color: white}")
-          ),
-          
           # basic plot ---------------------------------------------------------
-          plotlyOutput("basicPlot", height = "100%"),
-          
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          uiOutput("basicPlot") %>%
+            tagAppendAttributes(class = "box-border"),
           br(), br()
         ),
         
@@ -529,13 +575,8 @@ ui <- fluidPage(
         tabPanel(
           "Pair Plots", value = "pair",
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder2"),
-          tags$head(
-            tags$style("#placeholder2{font-size: 3px; color: white}")
-          ),
-          
           # pair plot: dropdown panel-------------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # graph settings
             conditionalPanel(
@@ -552,6 +593,11 @@ ui <- fluidPage(
               )
             ),
             
+            textInput("bg_pairs", "Background color", value = "grey98"),
+            prettyCheckbox(
+              "grid_pairs", "Show grid lines", value = TRUE,
+              status = "info", animation = "jelly", icon = icon("check")
+            ),
             numericInput(
               "height_pairs", "Plot Height (px)", value = 500
             ),
@@ -562,44 +608,87 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder3"),
-          tags$head(
-            tags$style("#placeholder3{font-size: 4px; color: white}")
-          ),
-          
           # pair plot ----------------------------------------------------------
-          plotOutput("pairPlot", height = "auto"), # %>% withSpinner(),
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          plotOutput("pairPlot", height = "auto")  %>% 
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
           
           br(), br()
         ),
         
-        # tab: PCA Plots ---------------------------------------------------
+        # tab: Dimension Reduction Plots --------------------------------------
         tabPanel(
-          "PCA Plots", value = "pca",
-          # add small white space ---------------------------------------------
-          textOutput("placeholder4"),
-          tags$head(
-            tags$style("#placeholder4{font-size: 3px; color: white}")
-          ),
-          # pca plot: dropdown panel-------------------------------------------
+          "Dim. Reduction", value = "dimred",
+          
+          # dim red plot: dropdown panel---------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
-            # graph settings
+            # plot settings
+            sliderInput(
+              "subsample_dimred", "Subsample Points", 
+              min = 0, max = 1, value = 1
+            ),
+            
+            # non-nmf settings
             conditionalPanel(
-              "(typeof input.pcs !== 'undefined' && input.pcs.length > 0)",
+              "(input.dimred_type == 'PCA' && (typeof input.pcs !== 'undefined' && input.pcs.length > 0))| input.dimred_type == 'UMAP' | input.dimred_type == 'tSNE'",
               sliderInput(
-                "subsample_pca", "Subsample Points", min = 0, max = 1, value = 1
-              ),
-              sliderInput(
-                "alpha_pca", "Transparency", min = 0, max = 1, value = 1
+                "alpha_dimred", "Transparency", min = 0, max = 1, value = 1
               ),
               numericInput(
-                "size_pca", "Point Size", value = 1, min = 0, max = 10
+                "size_dimred", "Point Size", value = 1, min = 0, max = 10
               )
             ),
             
+            # nmf settings
+            conditionalPanel(
+              "input.dimred_type == 'NMF'",
+              prettyRadioButtons(
+                "color_nmf", "Color Theme",
+                choices = c("Viridis - cool", "Viridis - warm", "YlOrRd"), 
+                selected = "YlOrRd",
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              prettyRadioButtons(
+                "nmf_cluster_x", "Cluster samples by",
+                choices = c("Hierarchical Clustering", "None"),
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              prettyRadioButtons(
+                "nmf_cluster_y", "Cluster features by",
+                choices = c("Hierarchical Clustering", "None"),
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              conditionalPanel(
+                "input.nmf_cluster_x == 'Hierarchical Clustering' | input.nmf_cluster_y == 'Hierarchical Clustering'",
+                pickerInput(
+                  "hclust_linkage_nmf", "Linkage",
+                  choices = c("ward.D", "ward.D2", "single", "complete", 
+                              "average", "mcquitty", "median", "centroid",
+                              "correlation"),
+                  selected = "ward.D",
+                  options = list(size = 5)
+                )
+              ),
+              prettyCheckboxGroup(
+                "labels_nmf", "Show Labels",
+                choices = c("Samples", "Features"), selected = "Features", 
+                status = "info", animation = "jelly", icon = icon("check")
+              )
+            ),
+            
+            # ggplot background settings
+            conditionalPanel(
+              "(input.dimred_type == 'PCA' && (typeof input.pcs !== 'undefined' && input.pcs.length > 0))| input.dimred_type == 'UMAP' | input.dimred_type == 'tSNE'",
+              textInput("bg_dimred", "Background color", value = "grey98"),
+              prettyCheckbox(
+                "grid_dimred", "Show grid lines", value = TRUE,
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+            ),
             numericInput(
-              "height_pca", "Plot Height (px)", value = 500
+              "height_dimred", "Plot Height (px)", value = 500
             ),
             
             # button settings
@@ -608,27 +697,60 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder5"),
-          tags$head(
-            tags$style("#placeholder5{font-size: 4px; color: white}")
+          # dim red plot ------------------------------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          uiOutput("dimRedPlot") %>%
+            tagAppendAttributes(class = "box-border") %>%
+            withSpinner(color = "#18bc9c"),
+          
+          # pc variance plot outputs --------------------------------------
+          conditionalPanel(
+            "input.dimred_type == 'PCA'",
+            # pc var plot dropdown panel -----------------------------------
+            dropdown(
+              materialSwitch("show_cum_var", tags$b("Show cumulative variance"), 
+                             value = FALSE, status = "info"),
+              numericInput("max_pc_show_var", "Max PC", value = 4),
+              
+              conditionalPanel(
+                "input.show_cum_var",
+                numericInput(
+                  "point_size_pca", "Point Size", value = 1, min = 0,
+                ),
+                numericInput(
+                  "line_width_pca", "Line Width", value = 1, min = 0,
+                )
+              ),
+              
+              textInput("bg_pca_var", "Background color", value = "grey98"),
+              prettyCheckbox(
+                "grid_pca_var", "Show grid lines", value = TRUE,
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              numericInput(
+                "height_pca_var", "Variance Plot Height (px)", value = 500
+              ),
+              
+              # button settings
+              circle = TRUE, status = "default", size = "sm",
+              icon = icon("gear"), width = "300px", style = "material-circle",
+              tooltip = tooltipOptions(title = "Click to see inputs")
+            ),
+            
+            # pc variance plot -----------------------------------------------
+            tags$div(class = "whitespace", tags$p("whitespace")),
+            uiOutput("PCAVar") %>%
+              tagAppendAttributes(class = "box-border") %>%
+              withSpinner(color = "#18bc9c"),
+            br(), br()
           ),
-          
-          # pca plot ----------------------------------------------------------
-          plotOutput("PCAPlot", height = "auto"), # %>% withSpinner(),
-          
-          br(), br()
         ),
         
         # tab: Heatmaps -------------------------------------------
         tabPanel(
           "Heatmaps", value = "heatmaps",
-          # add small white space ---------------------------------------------
-          textOutput("placeholder13"),
-          tags$head(
-            tags$style("#placeholder13{font-size: 3px; color: white}")
-          ),
           # heatmaps: dropdown panel-------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             prettyRadioButtons(
               "heatmap_cluster_x", "Cluster x by",
@@ -641,7 +763,7 @@ ui <- fluidPage(
               status = "info", animation = "jelly", icon = icon("check")
             ),
             conditionalPanel(
-              "input.heatmap_cluster == 'Hierarchical Clustering'",
+              "input.heatmap_cluster_x == 'Hierarchical Clustering' | input.heatmap_cluster_y == 'Hierarchical Clustering'",
               pickerInput(
                 "hclust_linkage_heatmap", "Linkage",
                 choices = c("ward.D", "ward.D2", "single", "complete", 
@@ -687,27 +809,18 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder14"),
-          tags$head(
-            tags$style("#placeholder14{font-size: 4px; color: white}")
-          ),
-          
           # heatmaps -----------------------------------------------
-          plotOutput("Heatmap", height = "auto"), #%>% withSpinner(),
-          
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          uiOutput("Heatmap") %>%
+            tagAppendAttributes(class = "box-border"),
           br(), br()
         ),
         
         # tab: Correlation Heatmaps -------------------------------------------
         tabPanel(
           "Correlation Heatmaps", value = "correlation",
-          # add small white space ---------------------------------------------
-          textOutput("placeholder8"),
-          tags$head(
-            tags$style("#placeholder8{font-size: 3px; color: white}")
-          ),
           # correlation heatmaps: dropdown panel-------------------------------
+          tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             prettyRadioButtons(
               "cor_cluster", "Cluster by",
@@ -760,15 +873,10 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
-          # add small white space ---------------------------------------------
-          textOutput("placeholder9"),
-          tags$head(
-            tags$style("#placeholder9{font-size: 4px; color: white}")
-          ),
-          
           # correlation heatmap -----------------------------------------------
-          plotOutput("CorrelationHeatmap", height = "auto"), #%>% withSpinner(),
-          
+          tags$div(class = "whitespace", tags$p("whitespace")),
+          uiOutput("CorrelationHeatmap") %>%
+            tagAppendAttributes(class = "box-border"),
           br(), br()
         )
       )
@@ -800,29 +908,35 @@ server <- function(input, output, session) {
     }
     switch(
       fileType,
-      "iris" = iris,
+      "iris" = data,
       ".rds" = readRDS(input$file$datapath),
-      ".csv" = read.csv(input$file$datapath, header = input$header),
+      ".csv" = read.csv(input$file$datapath, header = input$header, 
+                        check.names = F),
       ".txt" = read.table(input$file$datapath, header = input$header, 
-                          sep = input$sep)
+                          sep = input$sep, check.names = F)
     )
+    
   })
   
   # update feature selection if dataInput() changes --------------------------
   observe({
     data <- dataInput()
     vars <- colnames(data)
-    num_vars <- vars[sapply(data, class) == "numeric"]
+    num_vars <- vars[(sapply(data, class) == "numeric") |
+                       (sapply(data, class) == "integer")]
     updatePickerInput(session, "var1", choices = c("None", vars))
     updatePickerInput(session, "var2", choices = c("None", vars))
     updatePickerInput(session, "vars_pairs", choices = vars)
-    updatePickerInput(session, "vars_summary", choices = num_vars)
+    updatePickerInput(session, "vars_summary", choices = num_vars,
+                      selected = num_vars)
+    updatePickerInput(session, "vars_dimred", choices = num_vars, 
+                      selected = num_vars)
     updatePickerInput(session, "vars_cor", choices = num_vars)
-    updatePickerInput(session, "vars_heatmap", choices = vars)
+    updatePickerInput(session, "vars_heatmap", choices = num_vars)
     updatePickerInput(session, "sample_heatmap", choices = rownames(data))
     updateSliderInput(session, "p_cor",
                       value = 0, min = 0, max = length(num_vars))
-    updateSliderInput(session, "p_cor",
+    updateSliderInput(session, "p_cor_rows",
                       value = 0, min = 0, max = nrow(data))
     updateSliderInput(session, "p_heatmap", 
                       value = 0, min = 0, max = ncol(data))
@@ -831,6 +945,7 @@ server <- function(input, output, session) {
     updatePickerInput(session, "color1", choices = c("None", vars))
     updatePickerInput(session, "color_pairs", choices = vars)
     updatePickerInput(session, "color_pca", choices = vars)
+    updatePickerInput(session, "color_dimred", choices = vars)
   })
   
   # update plot types if inputs change ---------------------------------------
@@ -844,24 +959,30 @@ server <- function(input, output, session) {
       choices = plotTypeReactive())
   })
   
+  ### helper functions ------------------------------------------------------
+  addTheme <- function(plt, plotly = F, ...) {
+    if (plotly) {
+      plt <- plt + myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
+                                 legend_title_size = 14, legend_text_size = 12,
+                                 title_size = 18, axis_line_width = 2.5, ...)
+    } else {
+      plt <- plt + myGGplotTheme(axis_title_size = 14, axis_text_size = 10,
+                                 legend_title_size = 14, legend_text_size = 10,
+                                 strip_text_size = 14, ...)
+    }
+    return(plt)
+  }
   ### data summary: text outputs --------------------------------------------
-  output$n_output <- renderText({
+  output$text_summary <- renderText({
     data <- dataInput()
-    paste0("Number of samples: ", nrow(data))
-  })
-  output$p_output <- renderText({
-    data <- dataInput()
-    paste0("Number of features: ", ncol(data))
-  })
-  output$na_output <- renderText({
-    data <- dataInput()
-    paste0("Number of NAs: ", sum(is.na(data)))
-  })
-  output$const_output <- renderText({
-    data <- dataInput()
-    paste0("Number of constant columns: ",
-           sum(apply(as.data.frame(data[, sapply(data, class) == "numeric"]), 
-                     2, var) == 0, na.rm = T))
+    text_out <- paste0(paste0("Number of samples: ", nrow(data), "<br/>"),
+                       paste0("Number of features: ", ncol(data), "<br/>"),
+                       paste0("Number of NAs: ", sum(is.na(data)), "<br/>"),
+                       paste0("Number of constant columns: ",
+                              sum(apply(as.data.frame(
+                                data[, sapply(data, class) == "numeric"]
+                              ), 2, var) == 0, na.rm = T)))
+    text_out
   })
   
   ### data summary: table outputs --------------------------------------------
@@ -886,6 +1007,10 @@ server <- function(input, output, session) {
                                            targets = "_all")),
                     dom = "t"
                   ))
+  })
+  output$dtypes <- renderUI({
+    fluidPage(DTOutput("dtypes_table"),
+              tags$div(class = "whitespace", tags$p("whitespace")))
   })
   
   skimWrapper <- function(skim_out, dtype, digits, sigfig) {
@@ -1056,7 +1181,7 @@ server <- function(input, output, session) {
   })
   
   ### data summary: plot outputs --------------------------------------------
-  output$dist <- renderPlotly({
+  makeDistPlot <- reactive({
     req(input$vars_summary)
     req(input$height_summary)
     req(input$height_summary > 0)
@@ -1087,14 +1212,20 @@ server <- function(input, output, session) {
       plt <- plotBoxplot(data = data, horizontal = T) +
         labs(y = axis_label, title = "Overall Distribution")
     }
-    plt <- plt +
-      myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                    legend_title_size = 14, legend_text_size = 12,
-                    title_size = 18)
-    ggplotly(plt, height = input$height_summary)
+    plt
+  })
+  output$dist_plot <- renderPlotly({
+    plt <- makeDistPlot()
+    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
+                    grid_color = ifelse(input$grid_summary, 
+                                        "grey90", input$bg_summary))
+    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+  })
+  output$dist <- renderUI({
+    fluidPage(plotlyOutput("dist_plot", height = "100%"))
   })
   
-  output$variances <- renderPlotly({
+  makeVarPlot <- reactive({
     req(input$vars_summary)
     req(length(input$vars_summary) > 1)
     req(input$height_summary)
@@ -1123,14 +1254,20 @@ server <- function(input, output, session) {
       plt <- plotBoxplot(data = data, horizontal = T) +
         labs(y = "Variance", title = axis_label)
     }
-    plt <- plt + 
-      myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                    legend_title_size = 14, legend_text_size = 12,
-                    title_size = 18)
-    ggplotly(plt, height = input$height_summary)
+    plt
+  })
+  output$variances_plot <- renderPlotly({
+    plt <- makeVarPlot()
+    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
+                    grid_color = ifelse(input$grid_summary, 
+                                        "grey90", input$bg_summary))
+    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+  })
+  output$variances <- renderUI({
+    fluidPage(plotlyOutput("variances_plot", height = "100%"))
   })
   
-  output$means <- renderPlotly({
+  makeMeanPlot <- reactive({
     req(input$vars_summary)
     req(length(input$vars_summary) > 1)
     req(input$height_summary)
@@ -1159,11 +1296,17 @@ server <- function(input, output, session) {
       plt <- plotBoxplot(data = data, horizontal = T) +
         labs(y = "Mean", title = axis_label)
     }
-    plt <- plt +
-      myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                    legend_title_size = 14, legend_text_size = 12,
-                    title_size = 18)
-    ggplotly(plt, height = input$height_summary)
+    plt
+  })
+  output$means_plot <- renderPlotly({
+    plt <- makeMeanPlot()
+    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
+                    grid_color = ifelse(input$grid_summary, 
+                                        "grey90", input$bg_summary))
+    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+  })
+  output$means <- renderUI({
+    fluidPage(plotlyOutput("means_plot", height = "100%"))
   })
   
   ### data table: plot outputs ----------------------------------------------
@@ -1182,7 +1325,7 @@ server <- function(input, output, session) {
   })
   
   ### basic plot: plot outputs -----------------------------------------------
-  output$basicPlot <- renderPlotly({
+  makeBasicPlot <- reactive({
     req(input$height_basic)
     req(input$height_basic > 0)
     
@@ -1260,13 +1403,14 @@ server <- function(input, output, session) {
         plt1 <- plotBarplot(data = plt_df, x.str = "x1", fill.str = color_str) +
           labs(x = as.character(input$var1), fill = color_label) +
           myGGplotTheme(axis_title_size = 14, axis_text_size = 12, 
-                        legend_title_size = 14, legend_text_size = 12)
+                        legend_title_size = 14, legend_text_size = 12,
+                        axis_line_width = 2)
         plt2 <- plotBarplot(data = plt_df, x.str = "y1", fill.str = color_str) +
           labs(x = as.character(input$var2), fill = color_label) +
           myGGplotTheme(axis_title_size = 14, axis_text_size = 12,
-                        legend_title_size = 14, legend_text_size = 12)
-        plt <- ggarrange(plotlist = list(plt1, plt2),
-                         nrow = 1, ncol = 2, common.legend = T)
+                        legend_title_size = 14, legend_text_size = 12,
+                        axis_line_width = 2)
+        plt <- list(plt1, plt2)
       } else if (num_factors == 1) {
         plt <- plotBoxplot(data = plt_df, 
                            x.str = ifelse(is.factor(plt_df$x), "y", "x"),
@@ -1301,18 +1445,55 @@ server <- function(input, output, session) {
       if (num_factors != 2) {
         plt <- plt + 
           myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                        legend_title_size = 14, legend_text_size = 12)
+                        legend_title_size = 14, legend_text_size = 12,
+                        axis_line_width = 2.5)
       }
     } else {
       plt <- plt + 
         myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                      legend_title_size = 14, legend_text_size = 12)
+                      legend_title_size = 14, legend_text_size = 12,
+                      axis_line_width = 2.5)
     }
-    ggplotly(plt, height = input$height_basic)
+    plt
   })
+  output$basicPlot1 <- renderPlotly({
+    plt <- makeBasicPlot()
+    if (length(plt) == 2) {
+      plt <- plt[[1]]
+    } 
+    plt <- plt + theme(
+      panel.background = element_rect(fill = input$bg_basic),
+      panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
+                                                      "grey90", input$bg_basic),
+                                      size = rel(0.5))
+    )
+    ggplotly(plt, height = input$height_basic, dynamicTicks = T)
+  })
+  output$basicPlot2 <- renderPlotly({
+    plt <- makeBasicPlot()
+    if (length(plt) == 2) {
+      plt <- plt[[2]]
+    } 
+    plt <- plt + theme(
+      panel.background = element_rect(fill = input$bg_basic),
+      panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
+                                                      "grey90", input$bg_basic),
+                                      size = rel(0.5))
+    )
+    ggplotly(plt, height = input$height_basic, dynamicTicks = T)
+  })
+  output$basicPlot <- renderUI({
+    plt <- makeBasicPlot()
+    if (length(plt) == 2) {
+      fluidRow(column(6, plotlyOutput("basicPlot1", height = "100%")),
+               column(6, plotlyOutput("basicPlot2", height = "100%")))
+    } else {
+      fluidPage(plotlyOutput("basicPlot1", height = "100%"))
+    }
+  })  
   
   ### pair plot: plot outputs -----------------------------------------------
-  output$pairPlot <- renderPlot({
+  makePairPlot <- reactive({
     req(input$height_pairs)
     req(input$height_pairs > 0)
     
@@ -1364,21 +1545,29 @@ server <- function(input, output, session) {
                        subsample = input$subsample_pairs,
                        axis_title_size = 14, axis_text_size = 10,
                        legend_title_size = 14, legend_text_size = 10,
-                       strip_text_size = 14)
+                       strip_text_size = 14, 
+                       background_color = input$bg_pairs,
+                       grid_color = ifelse(input$grid_pairs, 
+                                           "grey90", input$bg_pairs))
     }
+    plt
+  })
+  output$pairPlot <- renderPlot({
+    plt <- makePairPlot()
     plt
   },
   height = function() input$height_pairs)
   
-  ### pca plot: plot outputs -----------------------------------------------
-  # only perform pca when data file changes
+  ### dim red plot: plot outputs ---------------------------------------------
+  ## pca: plot outputs --------------------------------------------------------
+  # only perform pca if selected and if data file changes
   pca_out <- reactive({
     req(input$pcs)
     
     data <- dataInput()
     
     # only perform PCA on numeric features
-    X <- data %>% select_if(is.numeric)
+    X <- data %>% select(input$vars_dimred)
     
     plotPCA(X = X, pcs = as.numeric(input$pcs),
             size = 1, alpha = 1, subsample = 1,
@@ -1386,9 +1575,11 @@ server <- function(input, output, session) {
             scale = "Scale" %in% input$pca_options)
   })
   
-  output$PCAPlot <- renderPlot({
-    req(input$height_pca)
-    req(input$height_pca > 0)
+  # make dimension reduction plot for pca
+  makePCAPlot <- reactive({
+    req(input$height_dimred)
+    req(input$height_dimred > 0)
+    req(input$dimred_type == "PCA")
     
     data <- dataInput()
     pca_data <- pca_out()
@@ -1418,14 +1609,272 @@ server <- function(input, output, session) {
     plt <- plotPCA(pca.out = pca_data, pcs = as.numeric(input$pcs),
                    color = color, color.label = color.label,
                    color2 = color2, color2.label = color2.label,
-                   size = input$size_pca, alpha = input$alpha_pca,
-                   subsample = input$subsample_pca,
-                   axis_title_size = 14, axis_text_size = 10,
-                   legend_title_size = 14, legend_text_size = 10,
-                   strip_text_size = 14)$plot
+                   size = input$size_dimred, alpha = input$alpha_dimred,
+                   subsample = input$subsample_dimred,
+                   axis_title_size = 16, axis_text_size = 12,
+                   legend_title_size = 14, legend_text_size = 12,
+                   strip_text_size = 16)$plot
+    plt
+  })
+  output$PCAPlot <- renderPlot({
+    plt <- makePCAPlot()
+    plt <- plt + theme(
+      panel.background = element_rect(fill = input$bg_dimred),
+      panel.grid.major = element_line(colour = ifelse(input$grid_dimred,
+                                                      "grey90", 
+                                                      input$bg_dimred),
+                                      size = rel(0.5))
+    )
     plt
   },
-  height = function() input$height_pca)
+  height = function() input$height_dimred)
+  
+  # pca variance explained plot
+  makePCAVarPlot <- reactive({
+    req(input$height_pca_var)
+    req(input$height_pca_var > 0)
+    req(input$dimred_type == "PCA")
+    
+    data <- dataInput()
+    
+    # only perform PCA on numeric features
+    X <- data %>% 
+      select_if(is.numeric) %>%
+      scale(center = "Center" %in% input$pca_options,
+            scale = "Scale" %in% input$pca_options)
+    
+    max_pc <- input$max_pc_show_var
+    
+    if (max_pc / min(nrow(X), ncol(X)) > .25) {  # do full svd
+      X_svd <- svd(X)
+    } else {
+      X_svd <- irlba(X, nu = max_pc, nv = max_pc)
+    }
+    
+    total_var <- norm(as.matrix(X), "F")^2
+    var_explained <- X_svd$d^2 / total_var
+    var_explained <- var_explained[1:min(max_pc, length(var_explained))]
+    
+    if (input$show_cum_var) {  # plot cumulative variance
+      plt_df <- data.frame(PC = 1:length(var_explained),
+                           Var = cumsum(var_explained))
+      plt <- ggplot(plt_df) +
+        aes(x = PC, y = Var) +
+        geom_point(size = input$point_size_pca, color = "blue") +
+        geom_line(size = input$line_width_pca, color = "blue") +
+        labs(x = "PC", y = "Cumulative Variance Explained")
+    } else {  # plot marginal variance
+      plt_df <- data.frame(PC = 1:length(var_explained),
+                           Var = cumsum(var_explained))
+      plt <- ggplot(plt_df) +
+        aes(x = PC, y = Var) +
+        geom_bar(stat = "identity", fill = "#6FBBE3") +
+        labs(x = "PC", y = "Prop. of Variance Explained")
+    }
+    
+    plt <- plt + 
+      myGGplotTheme(axis_title_size = 14, axis_text_size = 10,
+                    axis_line_width = 2.5)
+    
+  })
+  output$PCAVarPlot <- renderPlotly({
+    plt <- makePCAVarPlot()
+    plt <- plt + theme(
+      panel.background = element_rect(fill = input$bg_dimred),
+      panel.grid.major = element_line(colour = ifelse(input$grid_dimred,
+                                                      "grey90", 
+                                                      input$bg_dimred),
+                                      size = rel(0.5))
+    )
+    ggplotly(plt, height = input$height_pca_var)
+  })
+  output$PCAVar <- renderUI({
+    fluidPage(plotlyOutput("PCAVarPlot", height = "100%"))
+  })
+  
+  ## tsne/umap: plot outputs -------------------------------------------------
+  # only perform tsne if selected and if data changed
+  tsne_out <- reactive({
+    req(input$dimred_type == "tSNE")
+    
+    # only perform on selected numeric features
+    data <- dataInput()
+    X <- data %>% select(input$vars_dimred)
+    
+    Rtsne(X = X, dims = 2, check_duplicates = FALSE,
+          perplexity = input$perplexity_tsne, pca = input$pca_tsne, 
+          pca_center = "Center" %in% input$pca_tsne_options,
+          pca_scale = "Scale" %in% input$pca_tsne_options,
+          max_iter = input$maxiter_tsne)$Y
+  })
+  
+  # only perform umap if selected and if data changed
+  umap_out <- reactive({
+    req(input$dimred_type == "UMAP")
+    
+    # only perform on selected numeric features
+    data <- dataInput()
+    X <- data %>% select(input$vars_dimred)
+    
+    # set umap parameters
+    umap_params <- umap.defaults
+    umap_params$n_neighbors <- input$perplexity_umap
+    umap_params$n_epochs <- input$maxiter_umap
+    
+    umap(X, config = umap_params)$layout
+  })
+  
+  # make dimension reduction plot for tsne and umap
+  makeTsneUmapPlot <- reactive({
+    req(input$height_dimred)
+    req(input$height_dimred > 0)
+    req((input$dimred_type == "tSNE") | (input$dimred_type == "UMAP"))
+    
+    data <- dataInput()
+    if (input$dimred_type == "tSNE") {
+      dr_out <- tsne_out()
+    } else if (input$dimred_type == "UMAP") {
+      dr_out <- umap_out()
+    }
+    dr_out <- as.data.frame(dr_out)
+    
+    if (input$color_dimred != "") {  # color points
+      dr_out <- cbind(dr_out, col = data[, input$color_dimred])
+      if (input$subsample_dimred != 1) {
+        dr_out <- sample_frac(dr_out, size = input$subsample_dimred)
+      }
+      plt <- ggplot(dr_out) +
+        aes(x = V1, y = V2, color = col) +
+        geom_point(size = input$size_dimred, alpha = input$alpha_dimred) +
+        labs(x = paste(input$dimred_type, "Component 1"), 
+             y = paste(input$dimred_type, "Component 2"),
+             color = input$color_dimred) +
+        myGGplotColor(color = dr_out$col)
+    } else {
+      if (input$subsample_dimred != 1) {
+        dr_out <- sample_frac(dr_out, size = input$subsample_dimred)
+      }
+      plt <- ggplot(dr_out) +
+        aes(x = V1, y = V2) +
+        geom_point(size = input$size_dimred, alpha = input$alpha_dimred) +
+        labs(x = paste(input$dimred_type, "Component 1"), 
+             y = paste(input$dimred_type, "Component 2"))
+    }
+    plt
+  })
+  output$tsneUmapPlot <- renderPlotly({
+    plt <- makeTsneUmapPlot()
+    plt <- addTheme(plt, plotly = T, background_color = input$bg_dimred, 
+                    grid_color = ifelse(input$grid_dimred, 
+                                        "grey90", input$bg_dimred))
+    ggplotly(plt, height = input$height_dimred, dynamicTicks = T)
+  })
+  
+  ## nmf: plot outputs -----------------------------------------------------
+  nmf_out <- reactive({
+    req(input$dimred_type == "NMF")
+    
+    # only perform on selected numeric features
+    data <- dataInput()
+    X <- data %>% select(input$vars_dimred)
+
+    nmf_out <- nmf(x = X, rank = input$rank_nmf)@fit
+  })
+  
+  makeNmfWPlot <- reactive({
+
+    nmf_data <- nmf_out()
+    W <- nmf_data@W  # n x k matrix
+
+    if (input$subsample_dimred != 1) {
+      sample_idx <- sample(1:nrow(W), size = input$subsample_dimred * nrow(W),
+                           replace = F)
+      W <- W[sample_idx, ]
+    }
+
+    rownames(W) <- 1:nrow(W)
+    colnames(W) <- paste("NMF", 1:ncol(W), sep = "")
+
+    # color scheme
+    if (input$color_nmf == "YlOrRd") {
+      col_pal <- colorRampPalette(rev(brewer.pal(n = 7, name = "YlOrRd")))(50)
+    } else if (input$color_nmf == "Viridis - warm") {
+      col_pal <- viridis_pal(option = "C")(50)
+    } else if (input$color_nmf == "Viridis - cool") {
+      col_pal <- viridis_pal(option = "D")(50)
+    }
+
+    if (input$color_dimred != "") {  # color points
+      data <- dataInput()
+      anno_col <- data.frame(data[, input$color_dimred])
+      colnames(anno_col) <- input$color_dimred
+      rownames(anno_col) <- 1:nrow(W)
+    } else {
+      anno_col <- NA
+    }
+    
+    shiny_dev <- dev.cur()
+    ht <- pheatmap(t(W), color = col_pal, cluster_rows = F, border_color = NA,
+                   cluster_cols = input$nmf_cluster_x != "None", 
+                   clustering_method = input$hclust_linkage_nmf,
+                   annotation_col = anno_col,
+                   show_colnames = "Samples" %in% input$labels_nmf,
+                   main = "Sample NMF Matrix", fontsize = 14)
+    list(plt = ht, shiny_dev = shiny_dev)
+  })
+  output$nmfWPlot <- renderPlot({
+    out <- makeNmfWPlot()
+    dev.set(out$shiny_dev)
+    out$plt
+  },
+  height = function() input$height_dimred)
+  
+  makeNmfHPlot <- reactive({
+    
+    nmf_data <- nmf_out()
+    H <- nmf_data@H  # k x p matrix
+
+    rownames(H) <- paste("NMF", 1:nrow(H), sep = "")
+
+    # color scheme
+    if (input$color_nmf == "YlOrRd") {
+      col_pal <- colorRampPalette(rev(brewer.pal(n = 7, name = "YlOrRd")))(50)
+    } else if (input$color_nmf == "Viridis - warm") {
+      col_pal <- viridis_pal(option = "C")(50)
+    } else if (input$color_nmf == "Viridis - cool") {
+      col_pal <- viridis_pal(option = "D")(50)
+    }
+
+    shiny_dev <- dev.cur()
+    ht <- pheatmap(H, color = col_pal, cluster_rows = FALSE, border_color = NA,
+                   cluster_cols = input$nmf_cluster_y != "None", 
+                   clustering_method = input$hclust_linkage_nmf,
+                   show_colnames = "Features" %in% input$labels_nmf,
+                   main = "Feature NMF Matrix", fontsize = 14)
+    list(plt = ht, shiny_dev = shiny_dev)
+  })
+  output$nmfHPlot <- renderPlot({
+    out <- makeNmfHPlot()
+    dev.set(out$shiny_dev)
+    out$plt
+  },
+  height = function() input$height_dimred)
+  
+  ## dim red: ui output  ------------------------------------------------------
+  output$dimRedPlot <- renderUI({
+    if (input$dimred_type == "PCA") {
+      fluidPage(plotOutput("PCAPlot", height = "auto") %>%
+                  withSpinner(color = "#18bc9c"))
+    } else if ((input$dimred_type == "tSNE") | (input$dimred_type == "UMAP")) {
+      fluidPage(plotlyOutput("tsneUmapPlot", height = "100%") %>%
+                  withSpinner(color = "#18bc9c"))
+    } else if (input$dimred_type == "NMF") {
+      fluidPage(plotOutput("nmfWPlot", height = "auto") %>%
+                  withSpinner(color = "#18bc9c"), br(), br(),
+                plotOutput("nmfHPlot", height = "auto") %>%
+                  withSpinner(color = "#18bc9c"))
+    }
+  })
   
   ### heatmap: plot outputs ---------------------------------------
   # filter data for heatmap
@@ -1486,8 +1935,8 @@ server <- function(input, output, session) {
     list(x = hclust_out_x$order, y = hclust_out_y$order)
   })
   
-  # plot correlation heatmap
-  output$Heatmap <- renderPlot({
+  # plot heatmap
+  makeHeatmapPlot <- reactive({
     req(input$height_heatmap)
     req(input$height_heatmap > 0)
     
@@ -1531,7 +1980,8 @@ server <- function(input, output, session) {
                        n_quantiles = input$color_n_quantiles_heatmap,
                        x_text_angle = T, 
                        axis_text_size = 12, axis_title_size = 16,
-                       legend_title_size = 14, legend_text_size = 12) +
+                       legend_title_size = 14, legend_text_size = 12,
+                       axis_line_width = 2.5) +
       labs(x = "Features", y = "Samples", fill = "Value") 
     
     # additional plotting options
@@ -1547,8 +1997,36 @@ server <- function(input, output, session) {
       plt <- plt + coord_flip()
     }
     plt
-  },
-  height = function() input$height_heatmap)
+  })
+  output$heatmapPlot <- renderPlotly({
+    plt <- makeHeatmapPlot()
+    ggplotly(plt, height = input$height_heatmap)
+  })
+  
+  # ui heatmap
+  output$Heatmap <- renderUI({
+    if (((input$vars_select_heatmap == "Manually") & 
+         (is.null(input$vars_heatmap))) |
+        ((input$vars_select_heatmap == "Randomly") &
+         (input$p_heatmap == 0))) {
+      flag <- TRUE
+    } else if (((input$sample_select_heatmap == "Manually") & 
+         (is.null(input$sample_heatmap))) |
+        ((input$sample_select_heatmap == "Randomly") &
+         (input$p_heatmap_rows == 0))) {
+      flag <- TRUE
+    } else {
+      flag <- FALSE
+    }
+    
+    if (flag) {
+      out <- h4("Some inputs are missing. Please provide required inputs using the left sidebar...")
+    } else {
+      out <- plotlyOutput("heatmapPlot", height = "auto")  %>%
+        withSpinner(color = "#18bc9c")
+    }
+    out
+  })
   
   ### correlation heatmap: plot outputs ---------------------------------------
   # compute correlation matrix
@@ -1586,7 +2064,7 @@ server <- function(input, output, session) {
   })
   
   # plot correlation heatmap
-  output$CorrelationHeatmap <- renderPlot({
+  makeCorrelationHeatmapPlot <- reactive({
     req(input$height_cor)
     req(input$height_cor > 0)
     
@@ -1633,7 +2111,8 @@ server <- function(input, output, session) {
                        n_quantiles = input$color_n_quantiles_cor,
                        x_text_angle = T, 
                        axis_text_size = 12, axis_title_size = 16,
-                       legend_title_size = 14, legend_text_size = 12) +
+                       legend_title_size = 14, legend_text_size = 12,
+                       axis_line_width = 2.5) +
       labs(x = axis_label, y = axis_label, fill = "Cor.") 
     
     # additional plotting options
@@ -1650,31 +2129,43 @@ server <- function(input, output, session) {
         scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                              midpoint = 0, limit = c(-1, 1))
     }
-    
     plt
-  },
-  height = function() input$height_cor)
+  })
+  output$correlationHeatmapPlot <- renderPlotly({
+    plt <- makeCorrelationHeatmapPlot()
+    ggplotly(plt, height = input$height_cor)
+  })
+  
+  output$CorrelationHeatmap <- renderUI({
+    
+    if (((input$dim_select == "Rows") & (input$p_cor_rows == 0)) |
+        ((input$dim_select == "Columns") & 
+         (input$vars_select == "Manually") &
+         (length(input$vars_cor) == 0)) |
+        ((input$dim_select == "Columns") & 
+         (input$vars_select == "Randomly") &
+         (input$p_cor == 0)) ) {
+      flag <- TRUE
+    } else {
+      flag <- FALSE
+    }
+    
+    if (flag) {
+      out <- h4("Some inputs are missing. Please provide required inputs using the left sidebar...")
+    } else {
+      out <- plotlyOutput("correlationHeatmapPlot", height = "auto")  %>%
+        withSpinner(color = "#18bc9c")
+    }
+    out
+  })
   
   ### miscellaneous buttons/widgets -------------------------------------------
-  
-  # placeholder for additional spacing ----------------------------------------
-  output$placeholder0 <- renderText({return("placeholder")})
-  output$placeholder1 <- renderText({return("placeholder")})
-  output$placeholder2 <- renderText({return("placeholder")})
-  output$placeholder3 <- renderText({return("placeholder")})
-  output$placeholder4 <- renderText({return("placeholder")})
-  output$placeholder5 <- renderText({return("placeholder")})
-  output$placeholder6 <- renderText({return("placeholder")})
-  output$placeholder7 <- renderText({return("placeholder")})
-  output$placeholder8 <- renderText({return("placeholder")})
-  output$placeholder9 <- renderText({return("placeholder")})
-  output$placeholder10 <- renderText({return("placeholder")})
-  output$placeholder11<- renderText({return("placeholder")})
-  output$placeholder12 <- renderText({return("placeholder")})
-  output$placeholder13 <- renderText({return("placeholder")})
-  output$placeholder14 <- renderText({return("placeholder")})
-  output$placeholder15 <- renderText({return("placeholder")})
-  output$placeholder16 <- renderText({return("placeholder")})
+  # collapse sidebar and expand main panel
+  observeEvent(input$collapse_sidebar, {
+    shinyjs::toggle(id = "side-panel")
+    toggleCssClass("main-panel", "col-sm-9")
+    toggleCssClass("main-panel", "col-sm-12")
+  })
   
   ### output options ---------------------------------------------------------
   outputOptions(output, "fileType", suspendWhenHidden = FALSE)  

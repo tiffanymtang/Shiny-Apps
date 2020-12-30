@@ -43,7 +43,7 @@ ui <- fluidPage(
   # shinythemes::themeSelector(),
   titlePanel(
     tagList(
-      div(HTML('<i class="fas fa-search"></i> &nbsp; <b> Shiny Exploratory Data Analysis </b> &nbsp; <button class="action-button bttn bttn-simple bttn-sm bttn-default bttn-no-outline" id="collapse_sidebar" type="button"><i class="fa fa-bars"></i></button>'),
+      div(HTML('<i class="fas fa-search"></i> &nbsp; <b> Shiny Exploratory Data Analysis </b>'),
           id = "title")
     ),
     windowTitle = "ShinyEDA"
@@ -53,7 +53,7 @@ ui <- fluidPage(
   sidebarLayout(
     # sidebar panel -----------------------------------------------------------
     sidebarPanel(id = "side-panel", width = 3,
-                 tags$style(HTML(".well {min-height: 690px;}")),
+                 tags$style(HTML(paste0(".well {min-height: 700px;}"))),
       # file upload -----------------------------------------------------------
       fileInput(
         inputId = "file", label = "File Upload (.csv, .rds, .txt)", 
@@ -374,6 +374,7 @@ ui <- fluidPage(
     
     # main panel -----------------------------------------------------------
     mainPanel(id = "main-panel", width = 9,
+              div(HTML('<button class="bttn-collapse action-button bttn bttn-simple bttn-sm bttn-default bttn-no-outline" id="collapse_sidebar" type="button"><i class="fa fa-bars"></i></button>')),
       tabsetPanel(
         type = "tabs",
         id = "tab",
@@ -555,7 +556,7 @@ ui <- fluidPage(
               status = "info", animation = "jelly", icon = icon("check")
             ),
             numericInput(
-              "height_basic", "Plot Height (px)", value = 400
+              "height_basic", "Plot Height (px)", value = 500
             ),
             
             # button settings
@@ -1038,10 +1039,10 @@ server <- function(input, output, session) {
                      "Top Factor Counts" = "factor.top_counts")
     } else if (dtype == "numeric") {
       skim_df <- skim_df %>%
-        mutate(numeric.mean = formatC(numeric.mean, digits = digits, 
-                                      format = sigfig, flag = "#"),
-               numeric.sd = formatC(numeric.sd, digits = digits, 
-                                    format = sigfig, flag = "#"))
+        mutate_at(vars(c("numeric.mean", "numeric.sd",
+                         "numeric.p0", "numeric.p25", "numeric.p50",
+                         "numeric.p75", "numeric.p100")),
+                  formatC, digits = digits, format = sigfig, flag = "#")
       keep_cols <- c(keep_cols,
                      "Mean" = "numeric.mean",
                      "SD" = "numeric.sd",

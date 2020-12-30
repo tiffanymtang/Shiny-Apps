@@ -41,6 +41,20 @@
   color: #18bc9c; 
 }
 
+.bttn-collapse, .bttn-simple.bttn-default {
+  position: absolute;
+  border: none;
+  color: #18bc9c;
+  background-color: white;
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  box-shadow: 0px 1px 4px 1px rgba(0 ,0, 0, .3);
+  left: -35px;
+  top: 0px;
+  /*top: 9.5rem;*/
+}
+
 #title {
   background-color: #23313E; 
   margin-left: -15px; 
@@ -60,7 +74,7 @@
 }
 
 #side-panel {
-  margin-left: -15px;
+  margin-left: -30px;
   margin-top: -11px;
 }
 
@@ -137,6 +151,11 @@ caption {
 .whitespace {
   font-size: 3px; 
   color: white;
+}
+
+.row {
+  margin-right: 0px;
+  margin-left: 0px;
 }
 
 .smallwhitespace {

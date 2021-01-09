@@ -78,6 +78,23 @@ ui <- fluidPage(
       
       hr(),
       
+      # data table: variable inputs -------------------------------------------
+      conditionalPanel(
+        "input.tab == 'data_tab'",
+        # variable inputs
+        pickerInput(
+          "vars_table", "Variables:",
+          choices = colnames(data),
+          selected = colnames(data),
+          multiple = TRUE,
+          options = list(`live-search` = TRUE,
+                         size = 5,
+                         `selected-text-format` = "count > 3",
+                         title = "Nothing selected",
+                         multipleSeparator = ", ",
+                         `actions-box` = TRUE)
+        )
+      ),
       # basic plot: variable inputs -------------------------------------------
       conditionalPanel(
         "input.tab == 'basic'",
@@ -144,15 +161,28 @@ ui <- fluidPage(
         # variable inputs
         pickerInput(
           "vars_dimred", "Variables included:",
-          choices = colnames(data)[sapply(data, class) == "numeric"],
+          choices = colnames(data)[sapply(data, is.numeric)],
           multiple = TRUE,
-          selected = colnames(data)[sapply(data, class) == "numeric"],
+          selected = colnames(data)[sapply(data, is.numeric)],
           options = list(`live-search` = TRUE,
                          size = 5,
                          `selected-text-format` = "count > 3",
                          title = "Nothing selected",
                          multipleSeparator = ", ",
                          `actions-box` = TRUE)
+        ),
+        
+        # omit NA and constant columns
+        disabled(
+          prettyCheckboxGroup(
+            "vars_options_dimred", NULL,
+            choices = c("Remove columns with NAs", 
+                        "Remove constant columns"),
+            selected = c("Remove columns with NAs", 
+                         "Remove constant columns"), 
+            status = "info", animation = "jelly", 
+            icon = icon("check"), bigger = T
+          )
         ),
         
         # pca options ---------------------------------------------------------
@@ -260,7 +290,7 @@ ui <- fluidPage(
           "input.vars_select_heatmap == 'Manually'",
           pickerInput(
             "vars_heatmap", "Features:",
-            choices = colnames(data)[sapply(data, class) == "numeric"],
+            choices = colnames(data)[sapply(data, is.numeric)],
             multiple = TRUE,
             options = list(`live-search` = TRUE,
                            size = 5,
@@ -299,6 +329,17 @@ ui <- fluidPage(
           )
         ), 
         
+        # omit NA and constant columns
+        disabled(
+          prettyCheckboxGroup(
+            "vars_options_heatmap", NULL,
+            choices = "Remove constant columns",
+            selected = "Remove constant columns", 
+            status = "info", animation = "jelly", 
+            icon = icon("check"), bigger = T
+          )
+        ),
+        
         # centering and scaling options
         prettyCheckboxGroup(
           "heatmap_options", "Additional Options:",
@@ -336,7 +377,7 @@ ui <- fluidPage(
             "input.vars_select == 'Manually'",
             pickerInput(
               "vars_cor", "Features:",
-              choices = colnames(data)[sapply(data, class) == "numeric"],
+              choices = colnames(data)[sapply(data, is.numeric)],
               multiple = TRUE,
               options = list(`live-search` = TRUE,
                              size = 5,
@@ -359,6 +400,17 @@ ui <- fluidPage(
           "input.dim_select == 'Rows'",
           sliderInput(
             "p_cor_rows", "Number of Rows", value = 0, min = 0, max = 150
+          )
+        ),
+        
+        # omit NA and constant columns
+        disabled(
+          prettyCheckboxGroup(
+            "vars_options_cor", NULL,
+            choices = "Remove constant columns",
+            selected = "Remove constant columns", 
+            status = "info", animation = "jelly", 
+            icon = icon("check"), bigger = T
           )
         ),
         
@@ -387,7 +439,7 @@ ui <- fluidPage(
           fluidRow(column(6, 
                           h4(htmlOutput("text_summary")) %>%
                             tagAppendAttributes(class = "box-border"),
-                          tags$head(tags$style("#text_summary{line-height: 1.5em; min-height: 135px; display: flex; align-items: center;}"))),
+                          tags$head(tags$style("#text_summary{line-height: 1.4em; min-height: 135px; display: flex; align-items: center;}"))),
                    column(6, 
                           uiOutput("dtypes") %>%
                             tagAppendAttributes(class = "box-border") %>%
@@ -418,7 +470,7 @@ ui <- fluidPage(
             tagAppendAttributes(class = "box-border") %>%
             withSpinner(color = "#18bc9c"),
           
-          # data summary plot: dropdown panel --------------------------------------
+          # data summary plot: dropdown panel ---------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # type of plot
@@ -433,8 +485,8 @@ ui <- fluidPage(
             # variable inputs
             pickerInput(
               "vars_summary", "Variables:",
-              choices = colnames(data)[sapply(data, class) == "numeric"],
-              selected = colnames(data)[sapply(data, class) == "numeric"],
+              choices = colnames(data)[sapply(data, is.numeric)],
+              selected = colnames(data)[sapply(data, is.numeric)],
               multiple = TRUE,
               options = list(`live-search` = TRUE,
                              size = 5,
@@ -922,25 +974,43 @@ server <- function(input, output, session) {
   # update feature selection if dataInput() changes --------------------------
   observe({
     data <- dataInput()
+    
+    # all variable names
     vars <- colnames(data)
-    num_vars <- vars[(sapply(data, class) == "numeric") |
-                       (sapply(data, class) == "integer")]
+    # numeric variable names
+    num_vars <- vars[sapply(data, is.numeric)]
+    # NA column variable names
+    na_vars <- vars[apply(data, 2, FUN = function(x) any(is.na(x)))]
+    # constant column variable names
+    const_vars <- vars[apply(data, 2, FUN = function(x) {
+      if (!all(is.na(x))) {
+        return(all(x == x[!is.na(x)][1], na.rm = T))
+      } else {
+        return(FALSE)
+      }
+    })]
+    
+    # update variables
+    updatePickerInput(session, "vars_table", choices = vars, selected = vars)
     updatePickerInput(session, "var1", choices = c("None", vars))
     updatePickerInput(session, "var2", choices = c("None", vars))
     updatePickerInput(session, "vars_pairs", choices = vars)
     updatePickerInput(session, "vars_summary", choices = num_vars,
                       selected = num_vars)
-    updatePickerInput(session, "vars_dimred", choices = num_vars, 
-                      selected = num_vars)
-    updatePickerInput(session, "vars_cor", choices = num_vars)
-    updatePickerInput(session, "vars_heatmap", choices = num_vars)
+    updatePickerInput(session, "vars_dimred", 
+                      choices = setdiff(num_vars, c(const_vars, na_vars)), 
+                      selected = setdiff(num_vars, c(const_vars, na_vars)))
+    updatePickerInput(session, "vars_cor", 
+                      choices = setdiff(num_vars, const_vars))
+    updatePickerInput(session, "vars_heatmap", 
+                      choices = setdiff(num_vars, const_vars))
     updatePickerInput(session, "sample_heatmap", choices = rownames(data))
-    updateSliderInput(session, "p_cor",
-                      value = 0, min = 0, max = length(num_vars))
+    updateSliderInput(session, "p_cor", value = 0, 
+                      min = 0, max = length(setdiff(num_vars, const_vars)))
     updateSliderInput(session, "p_cor_rows",
                       value = 0, min = 0, max = nrow(data))
-    updateSliderInput(session, "p_heatmap", 
-                      value = 0, min = 0, max = ncol(data))
+    updateSliderInput(session, "p_heatmap", value = 0, 
+                      min = 0, max = length(setdiff(num_vars, const_vars)))
     updateSliderInput(session, "p_heatmap_rows",
                       value = 0, min = 0, max = nrow(data))
     updatePickerInput(session, "color1", choices = c("None", vars))
@@ -976,13 +1046,19 @@ server <- function(input, output, session) {
   ### data summary: text outputs --------------------------------------------
   output$text_summary <- renderText({
     data <- dataInput()
+    
     text_out <- paste0(paste0("Number of samples: ", nrow(data), "<br/>"),
                        paste0("Number of features: ", ncol(data), "<br/>"),
                        paste0("Number of NAs: ", sum(is.na(data)), "<br/>"),
+                       paste0("Number of columns with NAs: ", 
+                              sum(apply(data, 2, 
+                                        FUN = function(x) any(is.na(x)))), 
+                              "<br/>"),
                        paste0("Number of constant columns: ",
-                              sum(apply(as.data.frame(
-                                data[, sapply(data, class) == "numeric"]
-                              ), 2, var) == 0, na.rm = T)))
+                              sum(apply(data, 2,
+                                        FUN = function(x) {
+                                          all(x == x[!is.na(x)][1], na.rm = T)
+                                        }), na.rm = T)))
     text_out
   })
   
@@ -1312,8 +1388,14 @@ server <- function(input, output, session) {
   
   ### data table: plot outputs ----------------------------------------------
   output$table <- renderDT({
+    req(input$vars_table)
     data <- dataInput()
-    num_cols <- which(sapply(data, function(x) class(x) == "numeric"))
+    
+    data <- data %>%
+      select(input$vars_table)
+    
+    num_cols <- which(sapply(data, 
+                             FUN = function(x) is.numeric(x) & !is.integer(x)))
     names(num_cols) <- NULL
     dt <- datatable(data,
                     options = list(pageLength = 25,
@@ -1497,6 +1579,7 @@ server <- function(input, output, session) {
   makePairPlot <- reactive({
     req(input$height_pairs)
     req(input$height_pairs > 0)
+    req(input$vars_pairs)
     
     # read in data
     data <- dataInput()
@@ -1507,54 +1590,54 @@ server <- function(input, output, session) {
       num_colors <- length(input$color_pairs)
     }
     
-    # initialize empty plot
-    plt <- ggplot(data) +
-      labs(x = "", y = "") +
-      myGGplotTheme()
+    # variables to plot
+    plt_idx <- which(colnames(data) %in% input$vars_pairs)  
     
-    if (!is.null(input$vars_pairs)) {
-      # variables to plot
-      plt_idx <- which(colnames(data) %in% input$vars_pairs)  
-      
-      # convert binary variables to factors for plotting
-      plt_df <- data %>%
-        mutate_if(
-          function(col) {return(length(unique(col)) == 2)},
-          as.factor
-        )
-      
-      # set variables for plotting
-      color <- NULL
-      color.label <- ""
-      color2 <- NULL
-      color2.label <- ""
-      if (num_colors == 1) {
-        color <- plt_df[, input$color_pairs]
-        color.label <- input$color_pairs
-      } else if (num_colors == 2) {
-        color <- plt_df[, input$color_pairs[1]]
-        color.label <- input$color_pairs[1]
-        color2 <- plt_df[, input$color_pairs[2]]
-        color2.label <- input$color_pairs[2]
-      }
-      
-      # make pair plot
-      plt <- plotPairs(data = plt_df, columns = plt_idx, 
-                       color = color, color.label = color.label,
-                       color2 = color2, color2.label = color2.label,
-                       size = input$size_pairs, alpha = input$alpha_pairs, 
-                       subsample = input$subsample_pairs,
-                       axis_title_size = 14, axis_text_size = 10,
-                       legend_title_size = 14, legend_text_size = 10,
-                       strip_text_size = 14, 
-                       background_color = input$bg_pairs,
-                       grid_color = ifelse(input$grid_pairs, 
-                                           "grey90", input$bg_pairs))
+    # convert binary variables to factors for plotting
+    plt_df <- data %>%
+      mutate_if(
+        function(col) {return(length(unique(col)) == 2)},
+        as.factor
+      )
+    
+    # set variables for plotting
+    color <- NULL
+    color.label <- ""
+    color2 <- NULL
+    color2.label <- ""
+    if (num_colors == 1) {
+      color <- plt_df[, input$color_pairs]
+      color.label <- input$color_pairs
+    } else if (num_colors == 2) {
+      color <- plt_df[, input$color_pairs[1]]
+      color.label <- input$color_pairs[1]
+      color2 <- plt_df[, input$color_pairs[2]]
+      color2.label <- input$color_pairs[2]
     }
+    
+    # make pair plot
+    plt <- plotPairs(data = plt_df, columns = plt_idx, 
+                     color = color, color.label = color.label,
+                     color2 = color2, color2.label = color2.label,
+                     size = input$size_pairs, alpha = input$alpha_pairs, 
+                     subsample = input$subsample_pairs,
+                     axis_title_size = 14, axis_text_size = 10,
+                     legend_title_size = 14, legend_text_size = 10,
+                     strip_text_size = 14, 
+                     background_color = input$bg_pairs,
+                     grid_color = ifelse(input$grid_pairs, 
+                                         "grey90", input$bg_pairs))
     plt
   })
   output$pairPlot <- renderPlot({
-    plt <- makePairPlot()
+    if (!is.null(input$vars_pairs)) {
+      plt <- makePairPlot()
+    } else {
+      # initialize empty plot
+      plt <- ggplot(data) +
+        labs(x = "", y = "") +
+        myGGplotTheme()
+    }
     plt
   },
   height = function() input$height_pairs)
@@ -1640,7 +1723,7 @@ server <- function(input, output, session) {
     
     # only perform PCA on numeric features
     X <- data %>% 
-      select_if(is.numeric) %>%
+      select(input$vars_dimred) %>%
       scale(center = "Center" %in% input$pca_options,
             scale = "Scale" %in% input$pca_options)
     
@@ -1887,7 +1970,7 @@ server <- function(input, output, session) {
       data <- data %>% select(input$vars_heatmap)
     } else if (input$vars_select_heatmap == "Randomly") {
       req(input$p_heatmap > 0)
-      num_vars <- which(sapply(data, class) == "numeric")
+      num_vars <- which(sapply(data, is.numeric))
       if (length(num_vars) != input$p_heatmap) {
         data <- data[, sample(num_vars, input$p_heatmap, replace = F)]
       } else {
@@ -1916,7 +1999,7 @@ server <- function(input, output, session) {
       xscale <- TRUE
     }
     if (xcenter | xscale) {
-      numeric_cols <- purrr::map_lgl(data, is.numeric)
+      numeric_cols <- sapply(data, is.numeric)
       if (any(numeric_cols)) {
         data[, numeric_cols] <- scale(data[, numeric_cols], 
                                       center = xcenter, scale = xscale)
@@ -2036,7 +2119,14 @@ server <- function(input, output, session) {
     
     if (input$dim_select == "Rows") {
       req(input$p_cor_rows > 0)
-      num_vars <- which(sapply(data, class) == "numeric")
+      num_vars <- which(sapply(data, is.numeric) & 
+                          !apply(data, 2, FUN = function(x) {
+                            if (!all(is.na(x))) {  # constant columns
+                              return(all(x == x[!is.na(x)][1], na.rm = T))
+                            } else {  # all NA column
+                              return(TRUE)
+                            }
+                          }))
       keep_rows <- sort(sample(1:nrow(data), input$p_cor_rows, replace = F))
       data <- data[keep_rows, num_vars] %>%
         t() %>%
@@ -2047,7 +2137,7 @@ server <- function(input, output, session) {
         data <- data %>% select(input$vars_cor)
       } else if (input$vars_select == "Randomly") {
         req(input$p_cor > 0)
-        num_vars <- which(sapply(data, class) == "numeric")
+        num_vars <- which(sapply(data, is.numeric))
         data <- data[, sample(num_vars, input$p_cor, replace = F)] %>%
           as.data.frame()
       }

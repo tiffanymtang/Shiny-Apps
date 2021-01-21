@@ -608,6 +608,12 @@ ui <- fluidPage(
               status = "info", animation = "jelly", icon = icon("check")
             ),
             numericInput(
+              "xtext_basic", "X-Axis Text Size", value = 12
+            ),
+            numericInput(
+              "ytext_basic", "Y-Axis Text Size", value = 12
+            ),
+            numericInput(
               "height_basic", "Plot Height (px)", value = 500
             ),
             
@@ -650,6 +656,9 @@ ui <- fluidPage(
             prettyCheckbox(
               "grid_pairs", "Show grid lines", value = TRUE,
               status = "info", animation = "jelly", icon = icon("check")
+            ),
+            numericInput(
+              "xytext_pairs", "XY-Axis Text Size", value = 10
             ),
             numericInput(
               "height_pairs", "Plot Height (px)", value = 500
@@ -741,6 +750,9 @@ ui <- fluidPage(
               ),
             ),
             numericInput(
+              "xytext_dimred", "XY-Axis Text Size", value = 12
+            ),
+            numericInput(
               "height_dimred", "Plot Height (px)", value = 500
             ),
             
@@ -756,7 +768,7 @@ ui <- fluidPage(
             tagAppendAttributes(class = "box-border") %>%
             withSpinner(color = "#18bc9c"),
           
-          # pc variance plot outputs --------------------------------------
+          # additional pc plot outputs --------------------------------------
           conditionalPanel(
             "input.dimred_type == 'PCA'",
             # pc var plot dropdown panel -----------------------------------
@@ -781,6 +793,12 @@ ui <- fluidPage(
                 status = "info", animation = "jelly", icon = icon("check")
               ),
               numericInput(
+                "xtext_pca_var", "X-Axis Text Size", value = 12
+              ),
+              numericInput(
+                "ytext_pca_var", "Y-Axis Text Size", value = 12
+              ),
+              numericInput(
                 "height_pca_var", "Variance Plot Height (px)", value = 500
               ),
               
@@ -793,6 +811,64 @@ ui <- fluidPage(
             # pc variance plot -----------------------------------------------
             tags$div(class = "whitespace", tags$p("whitespace")),
             uiOutput("PCAVar") %>%
+              tagAppendAttributes(class = "box-border") %>%
+              withSpinner(color = "#18bc9c"),
+            
+            # pc heatmap loadings/scores plot dropdown panel ------------------
+            tags$div(class = "whitespace", tags$p("whitespace")),
+            dropdown(
+              numericInput("max_pc_heatmap", "Max PC", value = 4),
+              prettyRadioButtons(
+                "pc_heatmap_fill", "Plot",
+                choices = c("Loadings", "Scores"),
+                selected = "Loadings",
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              
+              prettyRadioButtons(
+                "pc_heatmap_cluster", "Cluster by",
+                choices = c("Hierarchical Clustering", "None"),
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              conditionalPanel(
+                "input.pc_heatmap_cluster == 'Hierarchical Clustering'",
+                pickerInput(
+                  "hclust_linkage_pc_heatmap", "Linkage",
+                  choices = c("ward.D", "ward.D2", "single", "complete", 
+                              "average", "mcquitty", "median", "centroid"),
+                  selected = "ward.D",
+                  options = list(size = 5)
+                )
+              ),
+              prettyRadioButtons(
+                "color_theme_pc_heatmap", "Color Theme",
+                choices = c("Viridis - cool", "Viridis - warm", "Temperature"), 
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              prettyCheckbox(
+                "coord_flip_pc_heatmap", "Flip x and y axes",
+                status = "info", animation = "jelly", icon = icon("check")
+              ),
+              
+              numericInput(
+                "xtext_pc_heatmap", "X-Axis Text Size", value = 12
+              ),
+              numericInput(
+                "ytext_pc_heatmap", "Y-Axis Text Size", value = 12
+              ),
+              numericInput(
+                "height_pca_heatmap", "Loadings Plot Height (px)", value = 400
+              ),
+              
+              # button settings
+              circle = TRUE, status = "default", size = "sm",
+              icon = icon("gear"), width = "300px", style = "material-circle",
+              tooltip = tooltipOptions(title = "Click to see inputs")
+            ),
+            
+            # pc heatmap loadings/scores plot --------------------------------
+            tags$div(class = "whitespace", tags$p("whitespace")),
+            uiOutput("PCAHeatmap") %>%
               tagAppendAttributes(class = "box-border") %>%
               withSpinner(color = "#18bc9c"),
             br(), br()
@@ -852,6 +928,12 @@ ui <- fluidPage(
               status = "info", animation = "jelly", icon = icon("check")
             ),
             
+            numericInput(
+              "xtext_heatmap", "X-Axis Text Size", value = 12
+            ),
+            numericInput(
+              "ytext_heatmap", "Y-Axis Text Size", value = 12
+            ),
             numericInput(
               "height_heatmap", "Plot Height (px)", value = 500
             ),
@@ -915,7 +997,12 @@ ui <- fluidPage(
             numericInput(
               "cor_text_size", "Correlation Text Size", value = 0, min = 0
             ),
-            
+            numericInput(
+              "xtext_cor", "X-Axis Text Size", value = 12
+            ),
+            numericInput(
+              "ytext_cor", "Y-Axis Text Size", value = 12
+            ),
             numericInput(
               "height_cor", "Plot Height (px)", value = 500
             ),
@@ -1548,7 +1635,9 @@ server <- function(input, output, session) {
       panel.background = element_rect(fill = input$bg_basic),
       panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
                                                       "grey90", input$bg_basic),
-                                      size = rel(0.5))
+                                      size = rel(0.5)),
+      axis.text.x = element_text(size = input$xtext_basic),
+      axis.text.y = element_text(size = input$ytext_basic)
     )
     ggplotly(plt, height = input$height_basic, dynamicTicks = T)
   })
@@ -1561,7 +1650,9 @@ server <- function(input, output, session) {
       panel.background = element_rect(fill = input$bg_basic),
       panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
                                                       "grey90", input$bg_basic),
-                                      size = rel(0.5))
+                                      size = rel(0.5)),
+      axis.text.x = element_text(size = input$xtext_basic),
+      axis.text.y = element_text(size = input$ytext_basic)
     )
     ggplotly(plt, height = input$height_basic, dynamicTicks = T)
   })
@@ -1631,7 +1722,8 @@ server <- function(input, output, session) {
   })
   output$pairPlot <- renderPlot({
     if (!is.null(input$vars_pairs)) {
-      plt <- makePairPlot()
+      plt <- makePairPlot() +
+        theme(axis.text = element_text(size = input$xytext_pairs))
     } else {
       # initialize empty plot
       plt <- ggplot(data) +
@@ -1645,7 +1737,10 @@ server <- function(input, output, session) {
   ### dim red plot: plot outputs ---------------------------------------------
   ## pca: plot outputs --------------------------------------------------------
   # only perform pca if selected and if data file changes
-  pca_out <- reactive({
+  get_max_pc <- reactive({
+    max(input$max_pc_show_var, input$max_pc_heatmap)
+  })
+  pca_plot_out <- reactive({
     req(input$pcs)
     
     data <- dataInput()
@@ -1658,6 +1753,37 @@ server <- function(input, output, session) {
             center = "Center" %in% input$pca_options, 
             scale = "Scale" %in% input$pca_options)
   })
+  pca_out <- reactive({
+    req(input$vars_dimred)
+    req(input$max_pc_show_var > 0)
+    
+    data <- dataInput()
+    
+    # only perform PCA on numeric features
+    X <- data %>% 
+      select(input$vars_dimred) %>%
+      scale(center = "Center" %in% input$pca_options,
+            scale = "Scale" %in% input$pca_options)
+    
+    max_pc <- get_max_pc()
+    
+    if (max_pc / min(nrow(X), ncol(X)) > .25) {  # do full svd
+      X_svd <- svd(X)
+    } else {
+      X_svd <- irlba(X, nu = max_pc, nv = max_pc)
+    }
+    
+    total_var <- norm(as.matrix(X), "F")^2
+    var_explained <- X_svd$d^2 / total_var
+    var_explained <- var_explained[1:min(max_pc, length(var_explained))]
+    
+    scores <- X_svd$u
+    loadings <- X_svd$v
+    rownames(scores) <- rownames(X)
+    rownames(loadings) <- colnames(X)
+    
+    list(var_explained = var_explained, scores = scores, loadings = loadings)
+  })
   
   # make dimension reduction plot for pca
   makePCAPlot <- reactive({
@@ -1666,7 +1792,7 @@ server <- function(input, output, session) {
     req(input$dimred_type == "PCA")
     
     data <- dataInput()
-    pca_data <- pca_out()
+    pca_data <- pca_plot_out()
     
     # retrieve number of colors
     num_colors <- 0
@@ -1707,7 +1833,8 @@ server <- function(input, output, session) {
       panel.grid.major = element_line(colour = ifelse(input$grid_dimred,
                                                       "grey90", 
                                                       input$bg_dimred),
-                                      size = rel(0.5))
+                                      size = rel(0.5)),
+      axis.text = element_text(size = input$xytext_dimred)
     )
     plt
   },
@@ -1719,25 +1846,9 @@ server <- function(input, output, session) {
     req(input$height_pca_var > 0)
     req(input$dimred_type == "PCA")
     
-    data <- dataInput()
-    
-    # only perform PCA on numeric features
-    X <- data %>% 
-      select(input$vars_dimred) %>%
-      scale(center = "Center" %in% input$pca_options,
-            scale = "Scale" %in% input$pca_options)
-    
-    max_pc <- input$max_pc_show_var
-    
-    if (max_pc / min(nrow(X), ncol(X)) > .25) {  # do full svd
-      X_svd <- svd(X)
-    } else {
-      X_svd <- irlba(X, nu = max_pc, nv = max_pc)
-    }
-    
-    total_var <- norm(as.matrix(X), "F")^2
-    var_explained <- X_svd$d^2 / total_var
-    var_explained <- var_explained[1:min(max_pc, length(var_explained))]
+    var_explained <- pca_out()$var_explained
+    var_explained <- var_explained[1:min(input$max_pc_show_var, 
+                                         length(var_explained))]
     
     if (input$show_cum_var) {  # plot cumulative variance
       plt_df <- data.frame(PC = 1:length(var_explained),
@@ -1749,7 +1860,7 @@ server <- function(input, output, session) {
         labs(x = "PC", y = "Cumulative Variance Explained")
     } else {  # plot marginal variance
       plt_df <- data.frame(PC = 1:length(var_explained),
-                           Var = cumsum(var_explained))
+                           Var = var_explained)
       plt <- ggplot(plt_df) +
         aes(x = PC, y = Var) +
         geom_bar(stat = "identity", fill = "#6FBBE3") +
@@ -1764,16 +1875,85 @@ server <- function(input, output, session) {
   output$PCAVarPlot <- renderPlotly({
     plt <- makePCAVarPlot()
     plt <- plt + theme(
-      panel.background = element_rect(fill = input$bg_dimred),
-      panel.grid.major = element_line(colour = ifelse(input$grid_dimred,
+      panel.background = element_rect(fill = input$bg_pca_var),
+      panel.grid.major = element_line(colour = ifelse(input$grid_pca_var,
                                                       "grey90", 
-                                                      input$bg_dimred),
-                                      size = rel(0.5))
+                                                      input$bg_pca_var),
+                                      size = rel(0.5)),
+      axis.text.x = element_text(size = input$xtext_pca_var),
+      axis.text.y = element_text(size = input$ytext_pca_var)
     )
     ggplotly(plt, height = input$height_pca_var)
   })
   output$PCAVar <- renderUI({
     fluidPage(plotlyOutput("PCAVarPlot", height = "100%"))
+  })
+  
+  # pca loadings plot
+  makePCAHeatmapPlot <- reactive({
+    req(input$height_pca_heatmap)
+    req(input$height_pca_heatmap > 0)
+    req(input$dimred_type == "PCA")
+    
+    data <- dataInput()
+    pca_data <- pca_out()
+    
+    if (input$pc_heatmap_fill == "Loadings") {
+      pc_df <- pca_data$loadings
+      pc_df <- pc_df[, 1:min(ncol(pc_df), input$max_pc_heatmap)] %>%
+        t() %>%
+        as.data.frame()
+      xlab <- "Features"
+    } else if (input$pc_heatmap_fill == "Scores") {
+      pc_df <- pca_data$scores
+      pc_df <- pc_df[, 1:min(ncol(pc_df), input$max_pc_heatmap)] %>%
+        t() %>%
+        as.data.frame()
+      xlab <- "Samples"
+    }
+    
+    # do hierarchical clustering on features, if desired
+    if (input$pc_heatmap_cluster == "Hierarchical Clustering") {
+      hclust_out <- hclust(d = dist(t(pc_df)),
+                           method = input$hclust_linkage_pc_heatmap)
+      pc_df <- pc_df[, hclust_out$order]
+    }
+    
+    # color scheme options
+    if (input$color_theme_pc_heatmap == "Temperature") {
+      manual.fill <- "temperature"
+    } else {
+      manual.fill <- NULL
+      if (str_detect(input$color_theme_pc_heatmap, "cool")) {
+        viridis_option <- "D"
+      } else {
+        viridis_option <- "C"
+      }
+    }
+    
+    plt <- plotHeatmap(X = pc_df,
+                       x.labels = colnames(pc_df),
+                       y.labels = paste0("PC", 1:nrow(pc_df)),
+                       position = "identity",
+                       manual.fill = manual.fill, option = viridis_option,
+                       x_text_angle = TRUE,
+                       axis_text_size = 12, axis_title_size = 16,
+                       legend_title_size = 14, legend_text_size = 12,
+                       axis_line_width = 2.5) +
+      labs(x = xlab, y = "PC", fill = input$pc_heatmap_fill)
+    if (input$coord_flip_pc_heatmap) {
+      plt <- plt + coord_flip()
+    }
+    plt
+  })
+  output$PCAHeatmapPlot <- renderPlotly({
+    plt <- makePCAHeatmapPlot() +
+      theme(axis.text.x = element_text(size = input$xtext_pc_heatmap),
+            axis.text.y = element_text(size = input$ytext_pc_heatmap))
+    ggplotly(plt, height = input$height_pca_heatmap)
+  })
+  output$PCAHeatmap <- renderUI({
+    fluidPage(plotlyOutput("PCAHeatmapPlot", height = "100%"))
   })
   
   ## tsne/umap: plot outputs -------------------------------------------------
@@ -1850,7 +2030,8 @@ server <- function(input, output, session) {
     plt <- makeTsneUmapPlot()
     plt <- addTheme(plt, plotly = T, background_color = input$bg_dimred, 
                     grid_color = ifelse(input$grid_dimred, 
-                                        "grey90", input$bg_dimred))
+                                        "grey90", input$bg_dimred)) +
+      theme(axis.text = element_text(size = input$xytext_dimred))
     ggplotly(plt, height = input$height_dimred, dynamicTicks = T)
   })
   
@@ -1903,7 +2084,7 @@ server <- function(input, output, session) {
                    clustering_method = input$hclust_linkage_nmf,
                    annotation_col = anno_col,
                    show_colnames = "Samples" %in% input$labels_nmf,
-                   main = "Sample NMF Matrix", fontsize = 14)
+                   main = "Sample NMF Matrix", fontsize = input$xytext_dimred)
     list(plt = ht, shiny_dev = shiny_dev)
   })
   output$nmfWPlot <- renderPlot({
@@ -1934,7 +2115,7 @@ server <- function(input, output, session) {
                    cluster_cols = input$nmf_cluster_y != "None", 
                    clustering_method = input$hclust_linkage_nmf,
                    show_colnames = "Features" %in% input$labels_nmf,
-                   main = "Feature NMF Matrix", fontsize = 14)
+                   main = "Feature NMF Matrix", fontsize = input$xytext_dimred)
     list(plt = ht, shiny_dev = shiny_dev)
   })
   output$nmfHPlot <- renderPlot({
@@ -2067,6 +2248,10 @@ server <- function(input, output, session) {
                        legend_title_size = 14, legend_text_size = 12,
                        axis_line_width = 2.5) +
       labs(x = "Features", y = "Samples", fill = "Value") 
+    plt
+  })
+  output$heatmapPlot <- renderPlotly({
+    plt <- makeHeatmapPlot()
     
     # additional plotting options
     if (!("x" %in% input$labels_heatmap)) {
@@ -2080,10 +2265,11 @@ server <- function(input, output, session) {
     if (input$coord_flip_heatmap) {
       plt <- plt + coord_flip()
     }
-    plt
-  })
-  output$heatmapPlot <- renderPlotly({
-    plt <- makeHeatmapPlot()
+    
+    plt <- plt + 
+      theme(axis.text.x = element_text(size = input$xtext_heatmap),
+            axis.text.y = element_text(size = input$ytext_heatmap))
+    
     ggplotly(plt, height = input$height_heatmap)
   })
   
@@ -2186,6 +2372,7 @@ server <- function(input, output, session) {
         viridis_option <- "C"
       }
     }
+    
     if (input$color_scale_cor == "By quantile") {
       col_quantile <- TRUE
     } else {
@@ -2205,6 +2392,10 @@ server <- function(input, output, session) {
                        legend_title_size = 14, legend_text_size = 12,
                        axis_line_width = 2.5) +
       labs(x = axis_label, y = axis_label, fill = "Cor.") 
+    plt
+  })
+  output$correlationHeatmapPlot <- renderPlotly({
+    plt <- makeCorrelationHeatmapPlot()
     
     # additional plotting options
     if (!("x" %in% input$labels_cor)) {
@@ -2215,15 +2406,17 @@ server <- function(input, output, session) {
       plt <- plt + theme(axis.text.y = element_blank(),
                          axis.ticks.y = element_blank())
     }
-    if ((input$color_theme_cor == "Temperature") & (!col_quantile)) {
+    if ((input$color_theme_cor == "Temperature") & 
+        (input$color_scale_cor != "By quantile")) {
       plt <- plt + 
         scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                              midpoint = 0, limit = c(-1, 1))
     }
-    plt
-  })
-  output$correlationHeatmapPlot <- renderPlotly({
-    plt <- makeCorrelationHeatmapPlot()
+    
+    plt <- plt +
+      theme(axis.text.x = element_text(size = input$xtext_cor),
+            axis.text.y = element_text(size = input$ytext_cor))
+    
     ggplotly(plt, height = input$height_cor)
   })
   

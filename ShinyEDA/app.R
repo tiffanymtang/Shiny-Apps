@@ -113,7 +113,14 @@ ui <- fluidPage(
                          title = "Nothing selected")
         ),
         pickerInput(
-          "color1", "Color by:",
+          "var3", "Variable 3:",
+          choices = c("None", colnames(data)),
+          options = list(`live-search` = TRUE,
+                         size = 5,
+                         title = "Nothing selected")
+        ),
+        pickerInput(
+          "color_basic", "Color by:",
           choices = c("None", colnames(data)),
           options = list(`live-search` = TRUE,
                          size = 5)
@@ -613,6 +620,9 @@ ui <- fluidPage(
             numericInput(
               "ytext_basic", "Y-Axis Text Size", value = 12
             ),
+            # numericInput(
+            #   "ztext_basic", "Z-Axis Text Size", value = 12
+            # ),
             numericInput(
               "height_basic", "Plot Height (px)", value = 500
             ),
@@ -649,6 +659,10 @@ ui <- fluidPage(
               ),
               numericInput(
                 "size_pairs", "Point Size", value = 1, min = 0, max = 10
+              ),
+              numericInput(
+                "corsize_pairs", "Correlation Text Size",
+                value = 3.5, min = 0
               )
             ),
             
@@ -1081,6 +1095,7 @@ server <- function(input, output, session) {
     updatePickerInput(session, "vars_table", choices = vars, selected = vars)
     updatePickerInput(session, "var1", choices = c("None", vars))
     updatePickerInput(session, "var2", choices = c("None", vars))
+    updatePickerInput(session, "var3", choices = c("None", vars))
     updatePickerInput(session, "vars_pairs", choices = vars)
     updatePickerInput(session, "vars_summary", choices = num_vars,
                       selected = num_vars)
@@ -1100,7 +1115,7 @@ server <- function(input, output, session) {
                       min = 0, max = length(setdiff(num_vars, const_vars)))
     updateSliderInput(session, "p_heatmap_rows",
                       value = 0, min = 0, max = nrow(data))
-    updatePickerInput(session, "color1", choices = c("None", vars))
+    updatePickerInput(session, "color_basic", choices = c("None", vars))
     updatePickerInput(session, "color_pairs", choices = vars)
     updatePickerInput(session, "color_pca", choices = vars)
     updatePickerInput(session, "color_dimred", choices = vars)
@@ -1109,7 +1124,7 @@ server <- function(input, output, session) {
   # update plot types if inputs change ---------------------------------------
   plotTypeReactive <- reactive({
     data <- dataInput()
-    plot_types <- getPlotTypes(data, input$var1, input$var2)
+    plot_types <- getPlotTypes(data, c(input$var1, input$var2, input$var3))
   })
   observe({
     updateRadioGroupButtons(
@@ -1503,17 +1518,15 @@ server <- function(input, output, session) {
     data <- dataInput()
     
     # number of inputted vars
-    num_vars <- (input$var1 != "" & input$var1 != "None") +
-      (input$var2 != "" & input$var2 != "None") -
-      (input$var1 == input$var2 & input$var1 != "" & input$var1 != "None")
+    vars <- setdiff(c(input$var1, input$var2, input$var3), c("", "None"))
+    num_vars <- length(vars)
     
     # retrive color variable
     color_str <- NULL
     color_label <- ""
-    if (!is.null(input$color1)) {
-      if (as.character(input$color1) != "" & 
-          as.character(input$color1) != "None") {
-        color_label <- as.character(input$color1)
+    if (!is.null(input$color_basic)) {
+      if (!(as.character(input$color_basic) %in% c("", "None"))) {
+        color_label <- as.character(input$color_basic)
         if (length(unique(data[, color_label])) == 2) {
           data$color <- as.factor(data[, color_label])
         } else {
@@ -1531,15 +1544,11 @@ server <- function(input, output, session) {
     if (num_vars == 1) {  # make 1-d plot
       plt_df <- data %>%
         sample_frac(size = input$subsample_basic, replace = F) %>%
-        rename(x = ifelse(input$var1 != "" & input$var1 != "None",
-                          as.character(input$var1),
-                          as.character(input$var2))) %>%
+        rename(x = vars) %>%
         mutate_if(is.character, as.factor)
       
       # x axis title
-      xlab_title <- ifelse(input$var1 != "" & input$var1 != "None",
-                           as.character(input$var1),
-                           as.character(input$var2))
+      xlab_title <- vars
       
       # make plot
       if (input$plotTypeBasic == "histogram") {
@@ -1561,7 +1570,7 @@ server <- function(input, output, session) {
     } else if (num_vars == 2) {  # make 2d plot
       plt_df <- data %>%
         sample_frac(size = input$subsample_basic, replace = F) %>%
-        rename(x = as.character(input$var1), y = as.character(input$var2)) %>%
+        rename(x = vars[1], y = vars[2]) %>%
         mutate_if(is.character, as.factor)
       
       # number of factors
@@ -1586,12 +1595,8 @@ server <- function(input, output, session) {
                            x.str = ifelse(is.factor(plt_df$x), "y", "x"),
                            y.str = ifelse(is.factor(plt_df$x), "x", "y"),
                            fill.str = color_str) +
-          labs(x = ifelse(!is.factor(plt_df$x), 
-                          as.character(input$var2), 
-                          as.character(input$var1)), 
-               y = ifelse(!is.factor(plt_df$x), 
-                          as.character(input$var1), 
-                          as.character(input$var2)),
+          labs(x = ifelse(!is.factor(plt_df$x), vars[2], vars[1]), 
+               y = ifelse(!is.factor(plt_df$x), vars[1], vars[2]),
                fill = color_label)
       } else {
         if (input$plotTypeBasic == "scatterplot") {
@@ -1599,15 +1604,37 @@ server <- function(input, output, session) {
                              color.str = color_str, 
                              alpha = input$alpha_basic, 
                              size = input$size_basic) +
-            labs(x = as.character(input$var1), y = as.character(input$var2),
-                 color = color_label)
+            labs(x = vars[1], y = vars[2], color = color_label)
         } else if (input$plotTypeBasic == "line") {
           plt <- plotLine(data = plt_df, x.str = "x", y.str = "y", 
                           color.str = color_str,
                           alpha = input$alpha_basic, size = input$size_basic) +
-            labs(x = as.character(input$var1), y = as.character(input$var2),
-                 color = color_label)
+            labs(x = vars[1], y = vars[2], color = color_label)
         }
+      }
+    } else if (num_vars == 3) {  # make 3d plot
+      plt_df <- data %>%
+        sample_frac(size = input$subsample_basic, replace = F) %>%
+        rename(x = vars[1], y = vars[2], z = vars[3], color = color_str) %>%
+        mutate_if(is.character, as.factor)
+      
+      if (!is.null(color_str)) {
+        plt <- plot_ly(plt_df, x = ~x, y = ~y, z = ~z, color = ~color,
+                       marker = list(size = input$size_basic,
+                                     opacity = input$alpha_basic)) %>%
+          add_markers() %>%
+          colorbar(title = input$color_basic) %>%
+          layout(scene = list(xaxis = list(title = vars[1]),
+                              yaxis = list(title = vars[2]),
+                              zaxis = list(title = vars[3])))
+      } else {
+        plt <- plot_ly(plt_df, x = ~x, y = ~y, z = ~z,
+                       marker = list(size = input$size_basic,
+                                     opacity = input$alpha_basic)) %>%
+          add_markers() %>%
+          layout(scene = list(xaxis = list(title = vars[1]),
+                              yaxis = list(title = vars[2]),
+                              zaxis = list(title = vars[3])))
       }
     }
     
@@ -1618,7 +1645,7 @@ server <- function(input, output, session) {
                         legend_title_size = 14, legend_text_size = 12,
                         axis_line_width = 2.5)
       }
-    } else {
+    } else if (num_vars < 3) {
       plt <- plt + 
         myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
                       legend_title_size = 14, legend_text_size = 12,
@@ -1631,15 +1658,20 @@ server <- function(input, output, session) {
     if (length(plt) == 2) {
       plt <- plt[[1]]
     } 
-    plt <- plt + theme(
-      panel.background = element_rect(fill = input$bg_basic),
-      panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
-                                                      "grey90", input$bg_basic),
-                                      size = rel(0.5)),
-      axis.text.x = element_text(size = input$xtext_basic),
-      axis.text.y = element_text(size = input$ytext_basic)
-    )
-    ggplotly(plt, height = input$height_basic, dynamicTicks = T)
+    if ("ggplot" %in% class(plt)) {
+      plt <- plt + theme(
+        panel.background = element_rect(fill = input$bg_basic),
+        panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
+                                                        "grey90", 
+                                                        input$bg_basic),
+                                        size = rel(0.5)),
+        axis.text.x = element_text(size = input$xtext_basic),
+        axis.text.y = element_text(size = input$ytext_basic)
+      )
+      return(ggplotly(plt, height = input$height_basic, dynamicTicks = T))
+    } else {
+      return(plt %>% layout(height = input$height_basic))
+    }
   })
   output$basicPlot2 <- renderPlotly({
     plt <- makeBasicPlot()
@@ -1657,10 +1689,25 @@ server <- function(input, output, session) {
     ggplotly(plt, height = input$height_basic, dynamicTicks = T)
   })
   output$basicPlot <- renderUI({
-    plt <- makeBasicPlot()
-    if (length(plt) == 2) {
+    
+    # read in data
+    data <- dataInput()
+    
+    # number of inputted vars
+    vars <- setdiff(c(input$var1, input$var2, input$var3), c("", "None"))
+    num_vars <- length(vars)
+    
+    # number of factors
+    num_factors <- data %>%
+      select(vars) %>%
+      select_if(is.factor) %>%
+      ncol()
+    
+    if ((num_vars == 2) & (num_factors == 2)) {
       fluidRow(column(6, plotlyOutput("basicPlot1", height = "100%")),
                column(6, plotlyOutput("basicPlot2", height = "100%")))
+    } else if ((num_vars == 3) & (num_factors != 0)) {
+      h4("3D scatter plot only accepts numeric variables. Please change variable selection.")
     } else {
       fluidPage(plotlyOutput("basicPlot1", height = "100%"))
     }
@@ -1711,6 +1758,7 @@ server <- function(input, output, session) {
                      color = color, color.label = color.label,
                      color2 = color2, color2.label = color2.label,
                      size = input$size_pairs, alpha = input$alpha_pairs, 
+                     cor.text.size = input$corsize_pairs,
                      subsample = input$subsample_pairs,
                      axis_title_size = 14, axis_text_size = 10,
                      legend_title_size = 14, legend_text_size = 10,
@@ -2038,10 +2086,15 @@ server <- function(input, output, session) {
   ## nmf: plot outputs -----------------------------------------------------
   nmf_out <- reactive({
     req(input$dimred_type == "NMF")
+    req(input$vars_dimred)
     
     # only perform on selected numeric features
     data <- dataInput()
     X <- data %>% select(input$vars_dimred)
+    
+    # remove rows with all 0s
+    zero_rows <- apply(X, 1, function(x) all(x == 0))
+    X <- X[!zero_rows, ]
 
     nmf_out <- nmf(x = X, rank = input$rank_nmf)@fit
   })

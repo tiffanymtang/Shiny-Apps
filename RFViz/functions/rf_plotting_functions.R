@@ -418,6 +418,14 @@ plotEpitreeInt <- function(epitree.out, int, z.range = NULL,
   Xtest <- epitree.out$data$Xtest
   ytest <- epitree.out$data$ytest
   ytrain <- epitree.out$data$ytrain
+  if (is.factor(ytrain)) {
+    ytrain <- as.numeric(ytrain)
+    ytest <- as.numeric(ytest)
+    if (min(as.numeric(ytrain)) > 0) {
+      ytrain <- ytrain - 1
+      ytest <- ytest - 1
+    }
+  }
   
   if (is.null(z.range)) {
     z.range <- c(min(c(ytest, ytrain)), max(c(ytest, ytrain)))
@@ -636,6 +644,12 @@ plotIntHeatmap <- function(irf.fit, X, y, eval.metrics = NULL, ints = NULL,
     default.pred <- 0
     if (is.null(eval.metrics)) {
       eval.metrics <- c("MAE", "Class")
+    }
+    if (is.factor(y)) {
+      y <- as.numeric(y)
+      if (min(y) > 0) {
+        y <- y - 1
+      }
     }
   } else {
     binary.rf <- FALSE

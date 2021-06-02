@@ -117,6 +117,32 @@ varInputMultiple <- function(id, label, choices,
   )
 }
 
+submitBtn <- function(id, label = "Submit", 
+                      style = "pill", color = "danger", ...) {
+  ##### Function Description ######
+  # wrapper to actionBttn() 
+  # 
+  # inputs:
+  # - id = id argument in actionBttn()
+  # - label = label argument in actionBttn()
+  # - style = style argument in actionBttn()
+  # - color = color argument in actionBttn()
+  # - ... = other arguments to pass to actionBttn()
+  ###################
+  
+  list(
+    br(),
+    actionButton(
+      inputId = id,
+      label = label,
+      style = style,
+      color = color,
+      ...
+    ) %>%
+      div(style = "display:inline-block")
+  )
+}
+
 radioBtns <- function(id, label, choices, selected = NULL,
                       status = "info", animation = "jelly",
                       icon_btn = icon("check"), bigger = TRUE, ...) {

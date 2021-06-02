@@ -149,6 +149,12 @@ ui <- fluidPage(
         varInputMultiple(id = "vars_int", label = "Interactions:",
                          choices = NULL)
       ),
+      
+      # submit button ----------------------------------------------------
+      conditionalPanel(
+        "(input.tab !== 'summary') && (input.tab !== 'basic')",
+        submitBtn(id = "submit")
+      )
     ),
     
     # main panel -----------------------------------------------------------
@@ -1924,7 +1930,7 @@ server <- function(input, output, session) {
   })  
   
   ### pair plot: plot outputs -----------------------------------------------
-  makePairPlot <- reactive({
+  makePairPlot <- eventReactive(input$submit, {
     req(input$height_pairs)
     req(input$height_pairs > 0)
     req(input$vars_pairs)
@@ -2194,7 +2200,7 @@ server <- function(input, output, session) {
     rownames(yhat) <- rownames(X)
     yhat
   })
-  makeRFPred <- reactive({
+  makeRFPred <- eventReactive(input$submit, {
     yhat_trees <- predYhatTrees()
     if (input$type_eval == "OOB") {
       y <- ytrainInput()
@@ -2378,7 +2384,7 @@ server <- function(input, output, session) {
   })
   
   ### tree plot: plot outputs --------------------------------------------
-  makeTreePlot <- reactive({
+  makeTreePlot <- eventReactive(input$submit, {
     req(input$height_tree)
     req(input$height_tree > 0)
     
@@ -2454,7 +2460,7 @@ server <- function(input, output, session) {
   })
   
   ### vimp: feature splits plot ouptuts ------------------------------------
-  makeRFSplits <- reactive({
+  makeRFSplits <- eventReactive(input$submit, {
     req(input$height_splits)
     req(input$height_splits > 0)
     req(input$vars_vimp)
@@ -2506,7 +2512,7 @@ server <- function(input, output, session) {
   })
   
   ### vimp: local stability plot ouptuts ------------------------------------
-  makeLocalStability <- reactive({
+  makeLocalStability <- eventReactive(input$submit, {
     req(input$height_lstab)
     req(input$height_lstab > 0)
     req(input$vars_vimp)
@@ -2624,7 +2630,7 @@ server <- function(input, output, session) {
   })
   
   ### vimp: local stability distribution plot ouptuts -------------------------
-  makeLocalStabilityDistPlot <- reactive({
+  makeLocalStabilityDistPlot <- eventReactive(input$submit, {
     lstab_out <- makeLocalStability()
     stab_df <- lstab_out$stab_df
     
@@ -2901,7 +2907,7 @@ server <- function(input, output, session) {
   })  
   
   ### int: local stability plot ouptuts ------------------------------------
-  makeIntLocalStability <- reactive({
+  makeIntLocalStability <- eventReactive(input$submit, {
     req(input$height_lstab_int)
     req(input$height_lstab_int > 0)
     req(input$vars_int)
@@ -3030,7 +3036,7 @@ server <- function(input, output, session) {
   })
   
   ### int: local stability distribution plot ouptuts -------------------------
-  makeIntLocalStabilityDistPlot <- reactive({
+  makeIntLocalStabilityDistPlot <- eventReactive(input$submit, {
     lstab_out <- makeIntLocalStability()
     stab_df <- lstab_out$stab_df
     
@@ -3321,7 +3327,7 @@ server <- function(input, output, session) {
   }) 
   
   ### int: interaction heatmap plot outputs -----------------------------------
-  makeIntHeatmap <- reactive({
+  makeIntHeatmap <- eventReactive(input$submit, {
     
     irf_fit <- irfFit()
     rf_fit <- rfFit()

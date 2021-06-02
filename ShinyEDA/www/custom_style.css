@@ -41,6 +41,11 @@
   color: #18bc9c; 
 }
 
+/*.bttn-material-circle.bttn-sm {
+  width: 42px;
+  height: 42px;
+}*/
+
 .bttn-collapse, .bttn-simple.bttn-default {
   position: absolute;
   border: none;
@@ -53,6 +58,35 @@
   left: -35px;
   top: 0px;
   /*top: 9.5rem;*/
+}
+
+/*.btn-group>.btn:first-child {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  padding: 0px;
+}*/
+
+.btn-circle>.radioGroupButtons button {
+  border-radius: 50%;
+}
+
+.btn-margin {
+  margin-right: 32px;
+}
+
+.panel {
+  background-color: transparent;
+  box-shadow: 0 0px 0px rgba(0,0,0,0);
+}
+
+.panel-default>.panel-heading {
+  border-left: 8px solid #95a5a6;
+}
+
+.panel-title {
+  font-size: 24px;
+  font-weight: bold;
 }
 
 #title {
@@ -161,4 +195,8 @@ caption {
 .smallwhitespace {
   font-size: 0.5px; 
   color: white;
+}
+
+.col-sm-1 {
+  padding-left: 0px;
 }

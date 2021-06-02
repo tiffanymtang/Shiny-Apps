@@ -23,7 +23,11 @@ library(kableExtra)
 library(DT)
 library(skimr)
 
-sourceDirectory("./functions/", modifiedOnly = F, recursive = F) 
+for (fname in list.files("functions", pattern = ".R$")) {
+  if (fname != "test.R") {
+    source(paste0("functions/", fname), chdir = T)
+  }
+}
 
 # starter data set
 data(iris)
@@ -1854,12 +1858,12 @@ server <- function(input, output, session) {
     color2 <- NULL
     color2.label <- ""
     if (num_colors == 1) {
-      color <- data[, input$color_pca]
+      color <- data %>% pull(input$color_pca)
       color.label <- input$color_pca
     } else if (num_colors == 2) {
-      color <- data[, input$color_pca[1]]
+      color <- data %>% pull(input$color_pca[1])
       color.label <- input$color_pca[1]
-      color2 <- data[, input$color_pca[2]]
+      color2 <- data %>% pull(input$color_pca[2])
       color2.label <- input$color_pca[2]
     }
     
@@ -2124,7 +2128,10 @@ server <- function(input, output, session) {
 
     if (input$color_dimred != "") {  # color points
       data <- dataInput()
-      anno_col <- data.frame(data[, input$color_dimred])
+      if (input$subsample_dimred != 1) {
+        data <- data[sample_idx, ]
+      }
+      anno_col <- data.frame(data %>% pull(input$color_dimred))
       colnames(anno_col) <- input$color_dimred
       rownames(anno_col) <- 1:nrow(W)
     } else {
@@ -2304,7 +2311,9 @@ server <- function(input, output, session) {
     plt
   })
   output$heatmapPlot <- renderPlotly({
-    plt <- makeHeatmapPlot()
+    plt <- makeHeatmapPlot() + 
+      theme(axis.text.x = element_text(size = input$xtext_heatmap),
+            axis.text.y = element_text(size = input$ytext_heatmap))
     
     # additional plotting options
     if (!("x" %in% input$labels_heatmap)) {
@@ -2318,10 +2327,6 @@ server <- function(input, output, session) {
     if (input$coord_flip_heatmap) {
       plt <- plt + coord_flip()
     }
-    
-    plt <- plt + 
-      theme(axis.text.x = element_text(size = input$xtext_heatmap),
-            axis.text.y = element_text(size = input$ytext_heatmap))
     
     ggplotly(plt, height = input$height_heatmap)
   })

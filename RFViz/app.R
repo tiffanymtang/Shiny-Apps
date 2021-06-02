@@ -26,37 +26,6 @@ for (fname in list.files("functions", pattern = ".R$")) {
   }
 }
 
-# starter data set
-# source("~/My Documents/R-Utility-Toolbox/fit_models.R", chdir = T)
-# train_id <- sample(1:100, size = 50, replace = FALSE)
-# test_id <- setdiff(1:100, train_id)
-# Xtrain <- iris[train_id, ] %>% select(-Species)
-# Xtest <- iris[test_id, ] %>% select(-Species)
-# ytrain <- as.factor(as.numeric(iris[train_id, "Species"]) - 1)
-# ytest <- as.factor(as.numeric(iris[test_id, "Species"]) - 1)
-# saveRDS(Xtrain, "~/iris_train.rds")
-# saveRDS(Xtest, "~/iris_train.rds")
-# saveRDS(ytrain, "~/iris_ytrain.rds")
-# saveRDS(ytest, "~/iris_ytest.rds")
-# rf_fit <- ranger(x = Xtrain, y = ytrain, keep.inbag = T, importance = "impurity")
-# irf_fit <- fitiRF(X = Xtrain, y = ytrain, int_return = 3)
-# saveRDS(rf_fit, "~/rf_fit.rds")
-# saveRDS(irf_fit$fit, "~/irf_fit.rds")
-# irf_fit <- fitiRF(X = Xtrain, y = ytrain, int_return = 1)
-# saveRDS(irf_fit$fit, "~/irf_fit_nonempty.rds")
-# epitree_out <- runEpitree(Xtrain = Xtrain, ytrain = as.numeric(as.character(ytrain)), 
-#                           Xtest = Xtest, ytest = as.numeric(as.character(ytest)), 
-#                           ints = irf_fit2$interaction$int, B = 50)
-# saveRDS(epitree_out, "~/epitree_fit.rds")
-Xtrain <- readRDS("~/iris_train.rds")
-Xtest <- readRDS("~/iris_test.rds")
-ytrain <- readRDS("~/iris_ytrain.rds")
-ytest <- readRDS("~/iris_ytest.rds")
-rf_fit <- readRDS("~/rf_fit.rds")
-# irf_fit <- readRDS("~/irf_fit.rds")
-irf_fit <- readRDS("~/irf_fit_nonempty.rds")
-epitree_out <- readRDS("~/epitree_fit.rds")
-
 # increase max file size to 30Mb
 options(shiny.maxRequestSize = 100 * 1024^2)  
 

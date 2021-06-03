@@ -20,9 +20,15 @@ fileUpload <- function(id, label) {
   # - id = filename or root of id
   # - label = label argument in fileInput()
   ####################
+  if (missing(id)) {
+    id <- "file"
+  } else {
+    id <- paste0("file_", id)
+  }
+  
   list(
     fileInput(
-      inputId = paste0("file_", id), 
+      inputId = id, 
       label = paste(label, "(.csv, .rds, .txt)"), 
       multiple = FALSE, accept = c(".rds", ".csv", ".txt")
     ),
@@ -196,7 +202,7 @@ checkbox <- function(id, label, value = FALSE,
 
 checkboxGroup <- function(id, label, choices, selected = NULL,
                           status = "info", animation = "jelly",
-                          icon_btn = icon("check"), ...) {
+                          icon_btn = icon("check"), bigger = TRUE, ...) {
   ##### Function Description ######
   # wrapper to prettyCheckboxGroup() 
   # 
@@ -216,6 +222,7 @@ checkboxGroup <- function(id, label, choices, selected = NULL,
     status = status,
     animation = animation,
     icon = icon_btn,
+    bigger = bigger,
     ...
   )
 }
@@ -325,24 +332,30 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
   # basic shiny input arguments for plotHclustHeatmap()
   ###################
   
+  if (missing(id)) {
+    id <- ""
+  } else {
+    id <- paste0("_", id)
+  }
+  
   if (!multicol) {
     opts <- list(
       radioBtns(
-        id = paste0("heatmap_cluster_x_", id), 
+        id = paste0("heatmap_cluster_x", id), 
         label = "Cluster x by",
         choices = c("Hierarchical Clustering", "None")
       ),
       radioBtns(
-        id = paste0("heatmap_cluster_y_", id), 
+        id = paste0("heatmap_cluster_y", id), 
         label = "Cluster y by",
         choices = c("Hierarchical Clustering", "None")
       ),
       conditionalPanel(
-        paste0("input.heatmap_cluster_x_", id,
-               " == 'Hierarchical Clustering' | input.heatmap_cluster_y_", id, 
+        paste0("input.heatmap_cluster_x", id,
+               " == 'Hierarchical Clustering' | input.heatmap_cluster_y", id, 
                " == 'Hierarchical Clustering'"),
         varInput(
-          id = paste0("hclust_linkage_heatmap_", id), 
+          id = paste0("hclust_linkage_heatmap", id), 
           label = "Linkage",
           choices = c("ward.D", "ward.D2", "single", "complete", 
                       "average", "mcquitty", "median", "centroid"),
@@ -350,47 +363,47 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
         )
       ),
       radioBtns(
-        id = paste0("color_theme_heatmap_", id),
+        id = paste0("color_theme_heatmap", id),
         label = "Color Theme",
         choices = c("Viridis - cool", "Viridis - warm", "Temperature")
       ),
       radioBtns(
-        id = paste0("color_scale_heatmap_", id), 
+        id = paste0("color_scale_heatmap", id), 
         label = "Color Scale",
         choices = c("By magnitude", "By quantile")
       ),
       conditionalPanel(
-        paste0("input.color_scale_heatmap_", id, 
-               " == 'By quantile' & input.color_theme_heatmap_", id,
+        paste0("input.color_scale_heatmap", id, 
+               " == 'By quantile' & input.color_theme_heatmap", id,
                " != 'Temperature'"),
         numericInput(
-          paste0("color_n_quantiles_heatmap_", id), "Number of quantiles",
+          paste0("color_n_quantiles_heatmap", id), "Number of quantiles",
           value = 5, min = NA, max = NA, step = 1
         )
       ),
       checkbox(
-        id = paste0("coord_flip_heatmap_", id),
+        id = paste0("coord_flip_heatmap", id),
         label = "Flip x and y axes"
       )
     )
   } else {
     opts1 <- list(
       radioBtns(
-        id = paste0("heatmap_cluster_x_", id), 
+        id = paste0("heatmap_cluster_x", id), 
         label = "Cluster x by",
         choices = c("Hierarchical Clustering", "None")
       ),
       radioBtns(
-        id = paste0("heatmap_cluster_y_", id), 
+        id = paste0("heatmap_cluster_y", id), 
         label = "Cluster y by",
         choices = c("Hierarchical Clustering", "None")
       ),
       conditionalPanel(
-        paste0("input.heatmap_cluster_x_", id,
-               " == 'Hierarchical Clustering' | input.heatmap_cluster_y_", id, 
+        paste0("input.heatmap_cluster_x", id,
+               " == 'Hierarchical Clustering' | input.heatmap_cluster_y", id, 
                " == 'Hierarchical Clustering'"),
         varInput(
-          id = paste0("hclust_linkage_heatmap_", id), 
+          id = paste0("hclust_linkage_heatmap", id), 
           label = "Linkage",
           choices = c("ward.D", "ward.D2", "single", "complete", 
                       "average", "mcquitty", "median", "centroid"),
@@ -401,26 +414,26 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
     
     opts2 <- list(
       radioBtns(
-        id = paste0("color_theme_heatmap_", id),
+        id = paste0("color_theme_heatmap", id),
         label = "Color Theme",
         choices = c("Viridis - cool", "Viridis - warm", "Temperature")
       ),
       radioBtns(
-        id = paste0("color_scale_heatmap_", id), 
+        id = paste0("color_scale_heatmap", id), 
         label = "Color Scale",
         choices = c("By magnitude", "By quantile")
       ),
       conditionalPanel(
-        paste0("input.color_scale_heatmap_", id, 
-               " == 'By quantile' & input.color_theme_heatmap_", id,
+        paste0("input.color_scale_heatmap", id, 
+               " == 'By quantile' & input.color_theme_heatmap", id,
                " != 'Temperature'"),
         numericInput(
-          paste0("color_n_quantiles_heatmap_", id), "Number of quantiles",
+          paste0("color_n_quantiles_heatmap", id), "Number of quantiles",
           value = 5, min = NA, max = NA, step = 1
         )
       ),
       checkbox(
-        id = paste0("coord_flip_heatmap_", id),
+        id = paste0("coord_flip_heatmap", id),
         label = "Flip x and y axes"
       )
     )
@@ -434,6 +447,65 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
     )
   }
   return(opts)
+}
+
+plotCorHeatmapOptions <- function(id) {
+  ##### Function Description ######
+  # basic shiny input arguments for plotCorHeatmap()
+  ###################
+  
+  if (missing(id)) {
+    id <- ""
+  } else {
+    id <- paste0("_", id)
+  }
+  
+  opts <- list(
+    radioBtns(
+      id = paste0("cor_cluster", id), 
+      label = "Cluster by",
+      choices = c("Hierarchical Clustering", "None")
+    ),
+    conditionalPanel(
+      paste0("input.cor_cluster", id,
+             " == 'Hierarchical Clustering' | input.cor_cluster", id, 
+             " == 'Hierarchical Clustering'"),
+      varInput(
+        id = paste0("cor_hclust_linkage", id), 
+        label = "Linkage",
+        choices = c("ward.D", "ward.D2", "single", "complete", 
+                    "average", "mcquitty", "median", "centroid"),
+        selected = "ward.D"
+      )
+    ),
+    numericInput(
+      inputId = paste0("size_cor", id), 
+      label = "Text Size", value = 0, min = 0, max = NA
+    ),
+    radioBtns(
+      id = paste0("color_theme_cor", id),
+      label = "Color Theme",
+      choices = c("Viridis - cool", "Viridis - warm", "Temperature")
+    ),
+    radioBtns(
+      id = paste0("color_scale_cor", id), 
+      label = "Color Scale",
+      choices = c("By magnitude", "By quantile")
+    ),
+    conditionalPanel(
+      paste0("input.color_scale_cor", id, 
+             " == 'By quantile' & input.color_theme_cor", id,
+             " != 'Temperature'"),
+      numericInput(
+        paste0("color_n_quantiles_cor", id), "Number of quantiles",
+        value = 5, min = NA, max = NA, step = 1
+      )
+    )
+  )
+  
+  return(opts)
+  
+  
 }
 
 plotLocalStabilityRFOptions <- function(id) {
@@ -615,14 +687,24 @@ tableOptions <- function(id, digits = NA, sigfig = FALSE) {
   # - sigfig = logical; whether or not to use sigfigs as default
   ###################
   
+  if (missing(id)) {
+    digits_id <- "digits"
+    sigfig_id <- "sigfig"
+  } else {
+    digits_id <- paste0("digits_", id)
+    sigfig_id <- paste0("sigfig_", id)
+  }
+  
   list(
     numericInput(
-      inputId = paste0("digits_", id), label = "Digits",
+      inputId = digits_id, label = "Digits",
       value = digits, min = 0, max = NA, step = 1
     ),
     checkbox(
-      id = paste0("sigfig_", id), label = "Use Significant Digits",
+      id = sigfig_id, label = "Use Significant Digits",
       value = sigfig
     )
   )
 }
+
+

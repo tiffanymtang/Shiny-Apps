@@ -174,33 +174,82 @@ addPlotOptions <- function(plt, input, id, plotly = FALSE, heatmap = FALSE,
 
 getHeatmapArgs <- function(input, id) {
   
+  if (missing(id)) {
+    id <- ""
+  } else {
+    id <- paste0("_", id)
+  }
+  
   # color scheme options
-  if (input[[paste0("color_theme_heatmap_", id)]] == "Temperature") {
+  if (input[[paste0("color_theme_heatmap", id)]] == "Temperature") {
     manual.fill <- "temperature"
     viridis_option <- "C"
   } else {
     manual.fill <- NULL
-    if (str_detect(input[[paste0("color_theme_heatmap_", id)]], "cool")) {
+    if (str_detect(input[[paste0("color_theme_heatmap", id)]], "cool")) {
       viridis_option <- "D"
     } else {
       viridis_option <- "C"
     }
   }
-  if (input[[paste0("color_scale_heatmap_", id)]] == "By quantile") {
+  if (input[[paste0("color_scale_heatmap", id)]] == "By quantile") {
     col_quantile <- TRUE
   } else {
     col_quantile <- FALSE
   }
   
   args_out <- list(
-    clust.x = input[[paste0("heatmap_cluster_x_", id)]] == "Hierarchical Clustering",
-    clust.y = input[[paste0("heatmap_cluster_y_", id)]] == "Hierarchical Clustering",
-    linkage.x = input[[paste0("hclust_linkage_heatmap_", id)]],
-    linkage.y = input[[paste0("hclust_linkage_heatmap_", id)]],
+    clust.x = input[[paste0("heatmap_cluster_x", id)]] == "Hierarchical Clustering",
+    clust.y = input[[paste0("heatmap_cluster_y", id)]] == "Hierarchical Clustering",
+    linkage.x = input[[paste0("hclust_linkage_heatmap", id)]],
+    linkage.y = input[[paste0("hclust_linkage_heatmap", id)]],
     option = viridis_option,
     manual.fill = manual.fill, 
     col_quantile = col_quantile, 
-    n_quantiles = input[[paste0("color_n_quantiles_heatmap_", id)]]
+    n_quantiles = input[[paste0("color_n_quantiles_heatmap", id)]]
   )
   return(args_out)
 }
+
+
+getCorHeatmapArgs <- function(input, id) {
+  
+  if (missing(id)) {
+    id <- ""
+  } else {
+    id <- paste0("_", id)
+  }
+  
+  # color scheme options
+  if (input[[paste0("color_theme_cor", id)]] == "Temperature") {
+    manual.fill <- "temperature"
+    viridis_option <- "C"
+  } else {
+    manual.fill <- NULL
+    if (str_detect(input[[paste0("color_theme_cor", id)]], "cool")) {
+      viridis_option <- "D"
+    } else {
+      viridis_option <- "C"
+    }
+  }
+  if (input[[paste0("color_scale_cor", id)]] == "By quantile") {
+    col_quantile <- TRUE
+  } else {
+    col_quantile <- FALSE
+  }
+  
+  args_out <- list(
+    cor.type = tolower(input[[paste0("cor_type", id)]]),
+    clust = input[[paste0("cor_cluster", id)]] == "Hierarchical Clustering",
+    linkage = input[[paste0("cor_hclust_linkage", id)]],
+    text.size = input[[paste0("size_cor", id)]],
+    option = viridis_option,
+    manual.fill = manual.fill, 
+    col_quantile = col_quantile, 
+    n_quantiles = input[[paste0("color_n_quantiles_cor", id)]]
+  )
+  return(args_out)
+}
+
+
+

@@ -1035,7 +1035,7 @@ server <- function(input, output, session) {
     fileType <- substr(input$file_xtrain$datapath, 
                        start = nchar(input$file_xtrain$datapath) - 3,
                        stop = nchar(input$file_xtrain$datapath))
-    switch(
+    out <- switch(
       fileType,
       ".rds" = readRDS(input$file_xtrain$datapath),
       ".csv" = read.csv(input$file_xtrain$datapath, 
@@ -1046,13 +1046,17 @@ server <- function(input, output, session) {
                           sep = input$sep_xtrain, 
                           check.names = F)
     )
+    if (is.matrix(out)) {
+      out <- as.data.frame(out)
+    }
+    return(out)
   })
   xtestInput <- reactive({
     req(input$file_xtest$datapath)
     fileType <- substr(input$file_xtest$datapath, 
                        start = nchar(input$file_xtest$datapath) - 3,
                        stop = nchar(input$file_xtest$datapath))
-    switch(
+    out <- switch(
       fileType,
       ".rds" = readRDS(input$file_xtest$datapath),
       ".csv" = read.csv(input$file_xtest$datapath, 
@@ -1063,6 +1067,10 @@ server <- function(input, output, session) {
                           sep = input$sep_xtest, 
                           check.names = F)
     )
+    if (is.matrix(out)) {
+      out <- as.data.frame(out)
+    }
+    return(out)
   })
   ytrainInput <- reactive({
     req(input$file_ytrain$datapath)
@@ -1139,7 +1147,11 @@ server <- function(input, output, session) {
   rfFit <- reactive({
     rf_fit <- rfInput()
     if ("rf.list" %in% names(rf_fit)) {
-      rf_fit <- rf_fit$rf.list[[input$irf_iteration]]
+      if ("predictions" %in% names(rf_fit$rf.list)) {
+        rf_fit <- rf_fit$rf.list
+      } else {
+        rf_fit <- rf_fit$rf.list[[input$irf_iteration]]
+      }
     }
     rf_fit
   })
@@ -1679,7 +1691,6 @@ server <- function(input, output, session) {
       plt <- plotBoxplot(data = data, fill.str = ".split", horizontal = T) +
         labs(y = axis_label, title = "Overall X Distribution", fill = "Split")
     }
-    print(plt)
     plt
   })
   output$xdist_plot <- renderPlotly({

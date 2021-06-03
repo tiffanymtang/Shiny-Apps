@@ -59,102 +59,38 @@ ui <- fluidPage(
     sidebarPanel(id = "side-panel", width = 3,
                  tags$style(HTML(paste0(".well {min-height: 700px;}"))),
       # file upload -----------------------------------------------------------
-      fileInput(
-        inputId = "file", label = "File Upload (.csv, .rds, .txt)", 
-        multiple = FALSE, accept = c(".rds", ".csv", ".txt")
-      ),
-      conditionalPanel(
-        condition = "output.fileType == '.txt'",
-        prettyRadioButtons("sep", "Separator",
-                           choices = c("Comma" = ",", 
-                                       "Semicolon" = ";",
-                                       "Tab" = "\t"),
-                           icon = icon("check"),
-                           bigger = TRUE,
-                           inline = TRUE,
-                           status = "info",
-                           animation = "smooth")
-      ),
-      conditionalPanel(
-        condition = "output.fileType == '.csv' | output.fileType == '.txt'",
-        materialSwitch("header", "Header", value = TRUE, status = "info")
-      ),
-      
+      fileUpload(label = "File Upload"),
       hr(),
       
       # data table: variable inputs -------------------------------------------
       conditionalPanel(
         "input.tab == 'data_tab'",
         # variable inputs
-        pickerInput(
-          "vars_table", "Variables:",
-          choices = colnames(data),
-          selected = colnames(data),
-          multiple = TRUE,
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         `selected-text-format` = "count > 3",
-                         title = "Nothing selected",
-                         multipleSeparator = ", ",
-                         `actions-box` = TRUE)
-        )
+        varInputMultiple(id = "vars_table", label = "Variables:", 
+                         choices = colnames(data), selected = colnames(data))
       ),
       # basic plot: variable inputs -------------------------------------------
       conditionalPanel(
         "input.tab == 'basic'",
-        pickerInput(
-          "var1", "Variable 1:",
-          choices = c("None", colnames(data)),
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         title = "Nothing selected")
-        ),
-        pickerInput(
-          "var2", "Variable 2:",
-          choices = c("None", colnames(data)),
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         title = "Nothing selected")
-        ),
-        pickerInput(
-          "var3", "Variable 3:",
-          choices = c("None", colnames(data)),
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         title = "Nothing selected")
-        ),
-        pickerInput(
-          "color_basic", "Color by:",
-          choices = c("None", colnames(data)),
-          options = list(`live-search` = TRUE,
-                         size = 5)
-        )
+        varInput(id = "var1", label = "Variable 1:",
+                 choices = c("None", colnames(data))),
+        varInput(id = "var2", label = "Variable 2:",
+                 choices = c("None", colnames(data))),
+        varInput(id = "var3", label = "Variable 3:",
+                 choices = c("None", colnames(data))),
+        varInput(id = "color_basic", label = "Color by:",
+                 choices = c("None", colnames(data)))
       ),
       
       # pair plot: variable inputs -------------------------------------------
       conditionalPanel(
         "input.tab == 'pair'",
         # variable inputs
-        pickerInput(
-          "vars_pairs", "Variables:",
-          choices = colnames(data),
-          multiple = TRUE,
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         `selected-text-format` = "count > 3",
-                         title = "Nothing selected",
-                         multipleSeparator = ", ",
-                         `actions-box` = TRUE)
-        ),
-        pickerInput(
-          "color_pairs", "Color by: (max 2)",
-          choices = colnames(data),
-          multiple = TRUE,
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         multipleSeparator = ", ",
-                         `max-options` = 2)
-        )
+        varInputMultiple(id = "vars_pairs", label = "Variables:", 
+                         choices = colnames(data)),
+        varInputMultiple(id = "color_pairs", label = "Color by: (max 2)",
+                         choices = colnames(data), 
+                         maxOptions = 2, actionsBox = FALSE)
       ),
       
       # dimension reduction: variable inputs -----------------------------------
@@ -162,81 +98,39 @@ ui <- fluidPage(
         "input.tab == 'dimred'",
         
         # dimension reduction technique
-        prettyRadioButtons(
-          "dimred_type", "Dimension Reduction Method",
-          choices = c("PCA", "NMF", "tSNE", "UMAP"),
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = TRUE, #inline = TRUE
-        ),
+        radioBtns(id = "dimred_type", label = "Dimension Reduction Method",
+                  choices = c("PCA", "NMF", "tSNE", "UMAP")),
         
         # variable inputs
-        pickerInput(
-          "vars_dimred", "Variables included:",
-          choices = colnames(data)[sapply(data, is.numeric)],
-          multiple = TRUE,
-          selected = colnames(data)[sapply(data, is.numeric)],
-          options = list(`live-search` = TRUE,
-                         size = 5,
-                         `selected-text-format` = "count > 3",
-                         title = "Nothing selected",
-                         multipleSeparator = ", ",
-                         `actions-box` = TRUE)
-        ),
+        varInputMultiple(id = "vars_dimred", label = "Variables included:",
+                         choices = colnames(data)[sapply(data, is.numeric)],
+                         selected = colnames(data)[sapply(data, is.numeric)]),
         
         # omit NA and constant columns
         disabled(
-          prettyCheckboxGroup(
-            "vars_options_dimred", NULL,
-            choices = c("Remove columns with NAs", 
-                        "Remove constant columns"),
-            selected = c("Remove columns with NAs", 
-                         "Remove constant columns"), 
-            status = "info", animation = "jelly", 
-            icon = icon("check"), bigger = T
-          )
+          checkboxGroup(id = "vars_options_dimred", label = NULL,
+                        choices = c("Remove columns with NAs", 
+                                    "Remove constant columns"),
+                        selected = c("Remove columns with NAs", 
+                                     "Remove constant columns"))
         ),
         
         # pca options ---------------------------------------------------------
         conditionalPanel(
           "input.dimred_type == 'PCA'",
-          pickerInput(
-            "pcs", "PCs:",
-            choices = 1:10,
-            selected = 1:2,
-            multiple = TRUE,
-            options = list(size = 5,
-                           `selected-text-format` = "count > 3",
-                           multipleSeparator = ", ")
-          ),
-          pickerInput(
-            "color_pca", "Color by: (max 2)",
-            choices = colnames(data),
-            multiple = TRUE,
-            options = list(`live-search` = TRUE,
-                           size = 5,
-                           multipleSeparator = ", ",
-                           `max-options` = 2)
-          ),
-          prettyCheckboxGroup(
-            "pca_options", "PCA Options:",
-            choices = c("Center", "Scale"),
-            selected = "Center", 
-            status = "info", animation = "jelly", 
-            icon = icon("check"), bigger = T
-          )
+          varInputMultiple(id = "pcs", label = "PCs:", 
+                           choices = 1:10, selected = 1:2),
+          varInputMultiple(id = "color_pca", label = "Color by: (max 2)",
+                           choices = colnames(data)),
+          checkboxGroup(id = "pca_options", label = "PCA Options:",
+                        choices = c("Center", "Scale"), selected = "Center")
         ),
         
         # non-pca options ----------------------------------------------------
         conditionalPanel(
           "input.dimred_type !== 'PCA'",
-          pickerInput(
-            "color_dimred", "Color by:",
-            choices = colnames(data),
-            selected = NULL,
-            options = list(`live-search` = TRUE,
-                           size = 5,
-                           title = "Nothing selected")
-          )
+          varInput(id = "color_dimred", label = "Color by:",
+                   choices = colnames(data))
         ),
         
         # tsne options -------------------------------------------------------
@@ -250,13 +144,8 @@ ui <- fluidPage(
                          status = "info"),
           conditionalPanel(
             "input.pca_tsne",
-            prettyCheckboxGroup(
-              "pca_tsne_options", "PCA Options:",
-              choices = c("Center", "Scale"),
-              selected = "Center", 
-              status = "info", animation = "jelly", 
-              icon = icon("check"), bigger = T
-            )
+            checkboxGroup(id = "pca_tsne_options", label = "PCA Options:",
+                          choices = c("Center", "Scale"), selected = "Center")
           )
         ),
         
@@ -280,50 +169,22 @@ ui <- fluidPage(
       conditionalPanel(
         "input.tab == 'heatmaps'",
         
-        # how to select variables
-        prettyRadioButtons(
-          "vars_select_heatmap", "Select Features",
-          choices = c("Manually", "Randomly"),
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = TRUE
-        ),
-        
-        # how to select rows
-        prettyRadioButtons(
-          "sample_select_heatmap", "Select Samples",
-          choices = c("Manually", "Randomly"),
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = TRUE
-        ),
+        # how to select variables and samples
+        radioBtns(id = "vars_select_heatmap", label = "Select Features",
+                  choices = c("Manually", "Randomly")),
+        radioBtns(id = "sample_select_heatmap", label = "Select Samples",
+                  choices = c("Manually", "Randomly")),
         
         # manual variable inputs
         conditionalPanel(
           "input.vars_select_heatmap == 'Manually'",
-          pickerInput(
-            "vars_heatmap", "Features:",
-            choices = colnames(data)[sapply(data, is.numeric)],
-            multiple = TRUE,
-            options = list(`live-search` = TRUE,
-                           size = 5,
-                           `selected-text-format` = "count > 3",
-                           title = "Nothing selected",
-                           multipleSeparator = ", ",
-                           `actions-box` = TRUE)
-          )
+          varInputMultiple(id = "vars_heatmap", label = "Features:",
+                           choices = colnames(data)[sapply(data, is.numeric)])
         ),
         conditionalPanel(
           "input.sample_select_heatmap == 'Manually'",
-          pickerInput(
-            "sample_heatmap", "Samples:",
-            choices = rownames(data),
-            multiple = TRUE,
-            options = list(`live-search` = TRUE,
-                           size = 5,
-                           `selected-text-format` = "count > 3",
-                           title = "Nothing selected",
-                           multipleSeparator = ", ",
-                           `actions-box` = TRUE)
-          )
+          varInputMultiple(id = "sample_heatmap", label = "Samples:",
+                           choices = rownames(data))
         ),
         
         # random variable inputs
@@ -342,23 +203,14 @@ ui <- fluidPage(
         
         # omit NA and constant columns
         disabled(
-          prettyCheckboxGroup(
-            "vars_options_heatmap", NULL,
-            choices = "Remove constant columns",
-            selected = "Remove constant columns", 
-            status = "info", animation = "jelly", 
-            icon = icon("check"), bigger = T
-          )
+          checkboxGroup(id = "vars_options_heatmap", label = NULL,
+                        choices = "Remove constant columns",
+                        selected = "Remove constant columns")
         ),
         
         # centering and scaling options
-        prettyCheckboxGroup(
-          "heatmap_options", "Additional Options:",
-          choices = c("Center", "Scale"),
-          selected = NULL, 
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = T
-        )
+        checkboxGroup(id = "heatmap_options", label = "Additional Options:",
+                      choices = c("Center", "Scale"), selected = NULL)
       ),
     
       # correlation heatmap: variable inputs ----------------------------------
@@ -366,39 +218,21 @@ ui <- fluidPage(
         "input.tab == 'correlation'",
         
         # what to plot correlation heatmap of
-        prettyRadioButtons(
-          "dim_select", "Select Dimension",
-          choices = c("Columns", "Rows"),
-          status = "info", animation = "jelly", 
-          icon = icon("check"), bigger = TRUE
-        ),
+        radioBtns(id = "dim_select", label = "Select Dimension",
+                  choices = c("Columns", "Rows")),
         
         # how to select variables
         conditionalPanel(
           "input.dim_select == 'Columns'",
-          prettyRadioButtons(
-            "vars_select", "Select Features",
-            choices = c("Manually", "Randomly"),
-            status = "info", animation = "jelly", 
-            icon = icon("check"), bigger = TRUE
-          ),
+          radioBtns(id = "vars_select", label = "Select Features",
+                    choices = c("Manually", "Randomly")),
           
           # variable inputs
           conditionalPanel(
             "input.vars_select == 'Manually'",
-            pickerInput(
-              "vars_cor", "Features:",
-              choices = colnames(data)[sapply(data, is.numeric)],
-              multiple = TRUE,
-              options = list(`live-search` = TRUE,
-                             size = 5,
-                             `selected-text-format` = "count > 3",
-                             title = "Nothing selected",
-                             multipleSeparator = ", ",
-                             `actions-box` = TRUE)
-            )
+            varInputMultiple(id = "vars_cor", label = "Features:",
+                             choices = colnames(data)[sapply(data, is.numeric)])
           ),
-          
           conditionalPanel(
             "input.vars_select == 'Randomly'",
             sliderInput(
@@ -407,6 +241,7 @@ ui <- fluidPage(
           ),
         ),
         
+        # how to select samples
         conditionalPanel(
           "input.dim_select == 'Rows'",
           sliderInput(
@@ -416,22 +251,20 @@ ui <- fluidPage(
         
         # omit NA and constant columns
         disabled(
-          prettyCheckboxGroup(
-            "vars_options_cor", NULL,
-            choices = "Remove constant columns",
-            selected = "Remove constant columns", 
-            status = "info", animation = "jelly", 
-            icon = icon("check"), bigger = T
-          )
+          checkboxGroup(id = "vars_options_cor", label = NULL,
+                        choices = "Remove constant columns",
+                        selected = "Remove constant columns")
         ),
         
         # correlation settings
-        prettyRadioButtons(
-          "cor_type", "Correlation Type",
-          choices = c("Pearson", "Kendall", "Spearman"),
-          status = "info", animation = "jelly",
-          icon = icon("check"), bigger = TRUE
-        )
+        radioBtns(id = "cor_type", label = "Correlation Type", 
+                  choices = c("Pearson", "Kendall", "Spearman"))
+      ),
+      
+      # submit button ---------------------------------------------------
+      conditionalPanel(
+        "(input.tab !== 'summary') && (input.tab !== 'data_tab') && (input.tab !== 'basic')",
+        submitBtn(id = "submit")
       )
     ),
     
@@ -458,18 +291,10 @@ ui <- fluidPage(
           
           hr(style = "border-top: 1px solid #23313E;"),
           
-          # data summary tables  ----------------------------------------------
+          # data summary table dropdown  --------------------------------------
           dropdown(
             # table options
-            numericInput(
-              "digits_summary", "Digits",
-              value = 1, min = 0, max = NA, step = 1
-            ),
-            prettyRadioButtons(
-              "sigfig_summary", "Use Significant Digits",
-              choices = c("Yes", "No"), selected = "No",
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
+            tableOptions(id = "summary", digits = 2),
             
             # button settings
             circle = TRUE, status = "default", size = "sm",
@@ -477,65 +302,46 @@ ui <- fluidPage(
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
+          # data summary tables ----------------------------------------------
           uiOutput("summary_tables") %>% 
             tagAppendAttributes(class = "box-border") %>%
             withSpinner(color = "#18bc9c"),
           
-          # data summary plot: dropdown panel ---------------------------------
+          # data summary plot inputs -----------------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
-          dropdown(
-            # type of plot
-            radioGroupButtons(
-              "plotTypeSummary", "Choose a graph type:",
-              choices = c(`<i class='fa fa-bar-chart'></i>` = "histogram",
-                          `<img src="chart-density-white.png" width=15px height=13px><div class='jhr'></div></img>` = "density",
-                          `<img src="chart-boxplot-white.png" width=15px height=13px><div class='jhr'></div></img>` = "boxplot"),
-              justified = TRUE
-            ),
-            
-            # variable inputs
-            pickerInput(
-              "vars_summary", "Variables:",
-              choices = colnames(data)[sapply(data, is.numeric)],
-              selected = colnames(data)[sapply(data, is.numeric)],
-              multiple = TRUE,
-              options = list(`live-search` = TRUE,
-                             size = 5,
-                             `selected-text-format` = "count > 3",
-                             title = "Nothing selected",
-                             multipleSeparator = ", ",
-                             `actions-box` = TRUE)
-            ),
-            
-            # graph settings
-            conditionalPanel(
-              "input.plotTypeSummary == 'histogram'",
-              sliderInput(
-                "bins_summary", "Number of Bins", value = 15, min = 1, max = 50
+          fluidRow(
+            # data summary plot dropdown ---------------------------------
+            column(1,
+              dropdown(
+                column(3,
+                       plotTypeOptions(id = "summary", plot_type_id = "Summary"),
+                ),
+                plotOptions(id = "summary", height = 400, multicol = TRUE,
+                            total_width = 9),
+                # button settings
+                circle = TRUE, status = "default", size = "sm",
+                icon = icon("gear"), width = "1000px", style = "material-circle",
+                tooltip = tooltipOptions(title = "Click to see inputs")
               )
             ),
-            conditionalPanel(
-              "input.plotTypeSummary == 'density' | input.plotTypeSummary == 'histogram'",
-              sliderInput(
-                "alpha_summary", "Transparency", min = 0, max = 1, value = .7
-              )
-            ),
-            
-            textInput("bg_summary", "Background color", value = "grey98"),
-            prettyCheckbox(
-              "grid_summary", "Show grid lines", value = TRUE,
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            numericInput("height_summary", "Plot Height (px)", value = 400),
-            
-            # button settings
-            circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
-            tooltip = tooltipOptions(title = "Click to see inputs")
+            # data summary plot toggles ---------------------------------
+            column(11,
+              plotTypeToggle(id = "Summary", 
+                             choices = c(`<i class='fa fa-bar-chart fa-lg'></i>` = "histogram",
+                                         `<img src="chart-density-white.png" width=16px height=12px><div class='jhr'></div></img>` = "density",
+                                         `<img src="chart-boxplot-white.png" width=16px height=12px><div class='jhr'></div></img>` = "boxplot")),
+              
+              # variable inputs
+              tags$div("Variables:",
+                       style = "margin-right: 5px; display: inline-block; font-weight: bold"),
+              varInputMultiple(id = "vars_summary", label = NULL, 
+                               choices = colnames(data)[sapply(data, is.numeric)],
+                               selected = colnames(data)[sapply(data, is.numeric)]) %>%
+                tagAppendAttributes(style = "display: inline-block")
+            )
           ),
           
           # data summary plots ----------------------------------------------
-          tags$div(class = "whitespace", tags$p("whitespace")),
           uiOutput("dist") %>%
             tagAppendAttributes(class = "box-border") %>%
             withSpinner(color = "#18bc9c"),
@@ -556,10 +362,7 @@ ui <- fluidPage(
           tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # table options
-            numericInput(
-              "digits", "Digits",
-              value = 0, min = 0, max = NA, step = 1
-            ),
+            tableOptions(digits = NA),
             
             # button settings
             circle = TRUE, status = "default", size = "sm", 
@@ -576,69 +379,43 @@ ui <- fluidPage(
         tabPanel(
           "Basic Plots", value = "basic",
           
-          # basic plot: dropdown panel -----------------------------------------
+          # basic plot inputs ----------------------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
-          dropdown(
-            # type of plot
-            radioGroupButtons(
-              "plotTypeBasic", "Choose a graph type:",
-              choices = "Please select variable(s) first",
-              justified = TRUE
-            ),
-            
-            # graph settings
-            conditionalPanel(
-              "input.plotTypeBasic != 'Please select variable(s) first'",
-              sliderInput(
-                "subsample_basic", "Subsample Points", 
-                min = 0, max = 1, value = 1
+          fluidRow(
+            # basic plot dropdown --------------------------------------------
+            column(1,
+              dropdown(
+                # graph settings
+                column(3,
+                       conditionalPanel(
+                         "input.plotTypeBasic != 'Please select variable(s) first'",
+                         sliderInput(
+                           "subsample_basic", "Subsample Points", 
+                           min = 0, max = 1, value = 1
+                         )
+                       ),
+                       plotTypeOptions(id = "basic", plot_type_id = "Basic")
+                ),
+                plotOptions(id = "basic", multicol = T, total_width = 9),
+                
+                # button settings
+                circle = TRUE, status = "default", size = "sm",
+                icon = icon("gear"), width = "1000px", style = "material-circle",
+                tooltip = tooltipOptions(title = "Click to see inputs")
               )
             ),
-            conditionalPanel(
-              "input.plotTypeBasic == 'histogram'",
-              sliderInput(
-                "bins_basic", "Number of Bins", value = 15, min = 1, max = 50
-              )
-            ),
-            conditionalPanel(
-              "input.plotTypeBasic == 'density' | input.plotTypeBasic == 'histogram' | input.plotTypeBasic == 'scatterplot'",
-              sliderInput(
-                "alpha_basic", "Transparency", min = 0, max = 1, value = .7
-              )
-            ),
-            conditionalPanel(
-              "input.plotTypeBasic == 'scatterplot' | input.plotTypeBasic == 'line'",
-              numericInput(
-                "size_basic", "Point Size", value = 1, min = 0, max = 10
-              )
-            ),
-            
-            textInput("bg_basic", "Background color", value = "grey98"),
-            prettyCheckbox(
-              "grid_basic", "Show grid lines", value = TRUE,
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            numericInput(
-              "xtext_basic", "X-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "ytext_basic", "Y-Axis Text Size", value = 12
-            ),
-            # numericInput(
-            #   "ztext_basic", "Z-Axis Text Size", value = 12
-            # ),
-            numericInput(
-              "height_basic", "Plot Height (px)", value = 500
-            ),
-            
-            # button settings
-            circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
-            tooltip = tooltipOptions(title = "Click to see inputs")
+            # basic plot toggles --------------------------------------------
+            column(11,
+              conditionalPanel(
+                "output.basicVarsInput",
+                plotTypeToggle(id = "Basic", 
+                               choices = "Please select variable(s) first")
+              ) %>%
+                tagAppendAttributes(style = "display: inline-block")
+            )
           ),
           
           # basic plot ---------------------------------------------------------
-          tags$div(class = "whitespace", tags$p("whitespace")),
           uiOutput("basicPlot") %>%
             tagAppendAttributes(class = "box-border"),
           br(), br()
@@ -652,47 +429,24 @@ ui <- fluidPage(
           tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
             # graph settings
-            conditionalPanel(
-              "(typeof input.vars_pairs !== 'undefined' && input.vars_pairs.length > 0)",
-              sliderInput(
-                "subsample_pairs", "Subsample Points", 
-                min = 0, max = 1, value = 1
-              ),
-              sliderInput(
-                "alpha_pairs", "Transparency", min = 0, max = 1, value = 1
-              ),
-              numericInput(
-                "size_pairs", "Point Size", value = 1, min = 0, max = 10
-              ),
-              numericInput(
-                "corsize_pairs", "Correlation Text Size",
-                value = 3.5, min = 0
+            column(3,
+              conditionalPanel(
+                isnull(id = "vars_pairs"),
+                plotPairsOptions(id = "pairs"),
               )
             ),
-            
-            textInput("bg_pairs", "Background color", value = "grey98"),
-            prettyCheckbox(
-              "grid_pairs", "Show grid lines", value = TRUE,
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            numericInput(
-              "xytext_pairs", "XY-Axis Text Size", value = 10
-            ),
-            numericInput(
-              "height_pairs", "Plot Height (px)", value = 500
-            ),
+            plotOptions(id = "pairs", multicol = T, total_width = 9),
             
             # button settings
             circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
+            icon = icon("gear"), width = "1000px", style = "material-circle",
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
           # pair plot ----------------------------------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
-          plotOutput("pairPlot", height = "auto")  %>% 
-            tagAppendAttributes(class = "box-border") %>%
-            withSpinner(color = "#18bc9c"),
+          uiOutput("pairs") %>% 
+            tagAppendAttributes(class = "box-border"),
           
           br(), br()
         ),
@@ -704,79 +458,53 @@ ui <- fluidPage(
           # dim red plot: dropdown panel---------------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
           dropdown(
-            # plot settings
-            sliderInput(
-              "subsample_dimred", "Subsample Points", 
-              min = 0, max = 1, value = 1
-            ),
-            
-            # non-nmf settings
-            conditionalPanel(
-              "(input.dimred_type == 'PCA' && (typeof input.pcs !== 'undefined' && input.pcs.length > 0))| input.dimred_type == 'UMAP' | input.dimred_type == 'tSNE'",
+            column(3,
+              # plot settings
               sliderInput(
-                "alpha_dimred", "Transparency", min = 0, max = 1, value = 1
+                "subsample_dimred", "Subsample Points", 
+                min = 0, max = 1, value = 1
               ),
-              numericInput(
-                "size_dimred", "Point Size", value = 1, min = 0, max = 10
-              )
-            ),
-            
-            # nmf settings
-            conditionalPanel(
-              "input.dimred_type == 'NMF'",
-              prettyRadioButtons(
-                "color_nmf", "Color Theme",
-                choices = c("Viridis - cool", "Viridis - warm", "YlOrRd"), 
-                selected = "YlOrRd",
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              prettyRadioButtons(
-                "nmf_cluster_x", "Cluster samples by",
-                choices = c("Hierarchical Clustering", "None"),
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              prettyRadioButtons(
-                "nmf_cluster_y", "Cluster features by",
-                choices = c("Hierarchical Clustering", "None"),
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
+              
+              # non-nmf settings
               conditionalPanel(
-                "input.nmf_cluster_x == 'Hierarchical Clustering' | input.nmf_cluster_y == 'Hierarchical Clustering'",
-                pickerInput(
-                  "hclust_linkage_nmf", "Linkage",
-                  choices = c("ward.D", "ward.D2", "single", "complete", 
-                              "average", "mcquitty", "median", "centroid",
-                              "correlation"),
-                  selected = "ward.D",
-                  options = list(size = 5)
+                paste0("(input.dimred_type == 'PCA' && ", isnull("pcs"), 
+                       ") | input.dimred_type == 'UMAP' | input.dimred_type == 'tSNE'"),
+                sliderInput(
+                  "alpha_dimred", "Transparency", min = 0, max = 1, value = 1
+                ),
+                numericInput(
+                  "size_dimred", "Point Size", value = 1, min = 0, max = 10
                 )
               ),
-              prettyCheckboxGroup(
-                "labels_nmf", "Show Labels",
-                choices = c("Samples", "Features"), selected = "Features", 
-                status = "info", animation = "jelly", icon = icon("check")
+              
+              # nmf settings
+              conditionalPanel(
+                "input.dimred_type == 'NMF'",
+                radioBtns(id = "color_nmf", label = "Color Theme",
+                          choices = c("Viridis - cool", "Viridis - warm", "YlOrRd"), 
+                          selected = "YlOrRd"),
+                radioBtns(id = "nmf_cluster_x", label = "Cluster samples by",
+                          choices = c("Hierarchical Clustering", "None")),
+                radioBtns(id = "nmf_cluster_y", label = "Cluster features by",
+                          choices = c("Hierarchical Clustering", "None")),
+                conditionalPanel(
+                  "input.nmf_cluster_x == 'Hierarchical Clustering' | input.nmf_cluster_y == 'Hierarchical Clustering'",
+                  varInput(id = "hclust_linkage_nmf", label = "Linkage",
+                           choices = c("ward.D", "ward.D2", "single", "complete", 
+                                       "average", "mcquitty", "median", "centroid",
+                                       "correlation"),
+                           selected = "ward.D"),
+                  checkboxGroup(id = "labels_nmf", label = "Show Labels",
+                    choices = c("Samples", "Features"), selected = "Features")
+                )
               )
             ),
-            
-            # ggplot background settings
-            conditionalPanel(
-              "(input.dimred_type == 'PCA' && (typeof input.pcs !== 'undefined' && input.pcs.length > 0))| input.dimred_type == 'UMAP' | input.dimred_type == 'tSNE'",
-              textInput("bg_dimred", "Background color", value = "grey98"),
-              prettyCheckbox(
-                "grid_dimred", "Show grid lines", value = TRUE,
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-            ),
-            numericInput(
-              "xytext_dimred", "XY-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "height_dimred", "Plot Height (px)", value = 500
-            ),
+            plotOptions(id = "dimred", heatmap = FALSE, multicol = TRUE,
+                        total_width = 9),
             
             # button settings
             circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
+            icon = icon("gear"), width = "1000px", style = "material-circle",
             tooltip = tooltipOptions(title = "Click to see inputs")
           ),
           
@@ -791,38 +519,27 @@ ui <- fluidPage(
             "input.dimred_type == 'PCA'",
             # pc var plot dropdown panel -----------------------------------
             dropdown(
-              materialSwitch("show_cum_var", tags$b("Show cumulative variance"), 
-                             value = FALSE, status = "info"),
-              numericInput("max_pc_show_var", "Max PC", value = 4),
-              
-              conditionalPanel(
-                "input.show_cum_var",
-                numericInput(
-                  "point_size_pca", "Point Size", value = 1, min = 0,
-                ),
-                numericInput(
-                  "line_width_pca", "Line Width", value = 1, min = 0,
+              column(3,
+                materialSwitch("show_cum_var", tags$b("Show cumulative variance"), 
+                               value = FALSE, status = "info"),
+                numericInput("max_pc_show_var", "Max PC", value = 4),
+                
+                conditionalPanel(
+                  "input.show_cum_var",
+                  numericInput(
+                    "point_size_pca", "Point Size", value = 1, min = 0,
+                  ),
+                  numericInput(
+                    "line_width_pca", "Line Width", value = 1, min = 0,
+                  )
                 )
               ),
-              
-              textInput("bg_pca_var", "Background color", value = "grey98"),
-              prettyCheckbox(
-                "grid_pca_var", "Show grid lines", value = TRUE,
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              numericInput(
-                "xtext_pca_var", "X-Axis Text Size", value = 12
-              ),
-              numericInput(
-                "ytext_pca_var", "Y-Axis Text Size", value = 12
-              ),
-              numericInput(
-                "height_pca_var", "Variance Plot Height (px)", value = 500
-              ),
+              plotOptions(id = "pca_var", heatmap = FALSE, multicol = T,
+                          total_width = 9),
               
               # button settings
               circle = TRUE, status = "default", size = "sm",
-              icon = icon("gear"), width = "300px", style = "material-circle",
+              icon = icon("gear"), width = "1000px", style = "material-circle",
               tooltip = tooltipOptions(title = "Click to see inputs")
             ),
             
@@ -832,56 +549,44 @@ ui <- fluidPage(
               tagAppendAttributes(class = "box-border") %>%
               withSpinner(color = "#18bc9c"),
             
-            # pc heatmap loadings/scores plot dropdown panel ------------------
+            # pc heatmap loadings/scores plot inputs ------------------------
             tags$div(class = "whitespace", tags$p("whitespace")),
-            dropdown(
-              numericInput("max_pc_heatmap", "Max PC", value = 4),
-              prettyRadioButtons(
-                "pc_heatmap_fill", "Plot",
-                choices = c("Loadings", "Scores"),
-                selected = "Loadings",
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              
-              prettyRadioButtons(
-                "pc_heatmap_cluster", "Cluster by",
-                choices = c("Hierarchical Clustering", "None"),
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              conditionalPanel(
-                "input.pc_heatmap_cluster == 'Hierarchical Clustering'",
-                pickerInput(
-                  "hclust_linkage_pc_heatmap", "Linkage",
-                  choices = c("ward.D", "ward.D2", "single", "complete", 
-                              "average", "mcquitty", "median", "centroid"),
-                  selected = "ward.D",
-                  options = list(size = 5)
+            fluidRow(
+              # pc heatmap loadings/scores plot dropdown ---------------------
+              column(1,
+                dropdown(
+                  column(3,
+                    numericInput("max_pc_heatmap", "Max PC", value = 4),
+                    radioBtns(id = "pc_heatmap_cluster", label = "Cluster by",
+                              choices = c("Hierarchical Clustering", "None")),
+                    conditionalPanel(
+                      "input.pc_heatmap_cluster == 'Hierarchical Clustering'",
+                      varInput(id = "hclust_linkage_pc_heatmap", label = "Linkage",
+                               choices = c("ward.D", "ward.D2", "single", "complete", 
+                                           "average", "mcquitty", "median", "centroid"),
+                               selected = "ward.D")
+                    ),
+                    radioBtns(id = "color_theme_pc_heatmap", label = "Color Theme",
+                              choices = c("Viridis - cool", "Viridis - warm", 
+                                          "Temperature")),
+                    checkbox(id = "coord_flip_pc_heatmap", 
+                             label = "Flip x and y axes")
+                  ),
+                  plotOptions(id = "pc_heatmap", heatmap = FALSE, multicol = T,
+                              total_width = 9),
+                  
+                  # button settings
+                  circle = TRUE, status = "default", size = "sm",
+                  icon = icon("gear"), width = "1000px", style = "material-circle",
+                  tooltip = tooltipOptions(title = "Click to see inputs")
                 )
               ),
-              prettyRadioButtons(
-                "color_theme_pc_heatmap", "Color Theme",
-                choices = c("Viridis - cool", "Viridis - warm", "Temperature"), 
-                status = "info", animation = "jelly", icon = icon("check")
+              # pc heatmap loadings/scores plot toggles -----------------------
+              column(11,
+                showSquareToggle(id = "pc_heatmap_fill", full_id = T,
+                                 choices = c("Loadings", "Scores"),
+                                 selected = "Loadings")
               ),
-              prettyCheckbox(
-                "coord_flip_pc_heatmap", "Flip x and y axes",
-                status = "info", animation = "jelly", icon = icon("check")
-              ),
-              
-              numericInput(
-                "xtext_pc_heatmap", "X-Axis Text Size", value = 12
-              ),
-              numericInput(
-                "ytext_pc_heatmap", "Y-Axis Text Size", value = 12
-              ),
-              numericInput(
-                "height_pca_heatmap", "Loadings Plot Height (px)", value = 400
-              ),
-              
-              # button settings
-              circle = TRUE, status = "default", size = "sm",
-              icon = icon("gear"), width = "300px", style = "material-circle",
-              tooltip = tooltipOptions(title = "Click to see inputs")
             ),
             
             # pc heatmap loadings/scores plot --------------------------------
@@ -896,139 +601,64 @@ ui <- fluidPage(
         # tab: Heatmaps -------------------------------------------
         tabPanel(
           "Heatmaps", value = "heatmaps",
-          # heatmaps: dropdown panel-------------------------------
+          # heatmap plot inputs ----------------------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
-          dropdown(
-            prettyRadioButtons(
-              "heatmap_cluster_x", "Cluster x by",
-              choices = c("Hierarchical Clustering", "None"),
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            prettyRadioButtons(
-              "heatmap_cluster_y", "Cluster y by",
-              choices = c("Hierarchical Clustering", "None"),
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            conditionalPanel(
-              "input.heatmap_cluster_x == 'Hierarchical Clustering' | input.heatmap_cluster_y == 'Hierarchical Clustering'",
-              pickerInput(
-                "hclust_linkage_heatmap", "Linkage",
-                choices = c("ward.D", "ward.D2", "single", "complete", 
-                            "average", "mcquitty", "median", "centroid"),
-                selected = "ward.D",
-                options = list(size = 5)
+          fluidRow(
+            # heatmap plot dropdown ------------------------------------------
+            column(1,
+              dropdown(
+                column(5,
+                  plotHclustHeatmapOptions(multicol = T, column_widths = c(7, 5))
+                ),
+                column(7,
+                  plotOptions(id = "heatmap", heatmap = TRUE, multicol = T)
+                ),
+                
+                # button settings
+                circle = TRUE, status = "default", size = "sm",
+                icon = icon("gear"), width = "1000px", style = "material-circle",
+                tooltip = tooltipOptions(title = "Click to see inputs")
               )
             ),
-            prettyCheckboxGroup(
-              "labels_heatmap", "Show Axis Labels",
-              choices = c("x", "y"), selected = c("x", "y"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            prettyRadioButtons(
-              "color_theme_heatmap", "Color Theme",
-              choices = c("Viridis - cool", "Viridis - warm", "Temperature"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            prettyRadioButtons(
-              "color_scale_heatmap", "Color Scale",
-              choices = c("By magnitude", "By quantile"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            conditionalPanel(
-              "input.color_scale_heatmap == 'By quantile' & input.color_theme_heatmap != 'Temperature'",
-              numericInput(
-                "color_n_quantiles_heatmap", "Number of quantiles",
-                value = 5, min = NA, max = NA, step = 1
-              )
-            ),
-            prettyCheckbox(
-              "coord_flip_heatmap", "Flip x and y axes",
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
             
-            numericInput(
-              "xtext_heatmap", "X-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "ytext_heatmap", "Y-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "height_heatmap", "Plot Height (px)", value = 500
-            ),
-            
-            # button settings
-            circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
-            tooltip = tooltipOptions(title = "Click to see inputs")
+            # heatmap plot toggles ------------------------------------------
+            column(11,
+              showToggle(id = "heatmap", choices = c("GGplot", "Plotly"),
+                         selected = "GGplot")
+            )
           ),
-          
-          # heatmaps -----------------------------------------------
-          tags$div(class = "whitespace", tags$p("whitespace")),
-          uiOutput("Heatmap") %>%
+          # heatmap plot ---------------------------------------------------
+          uiOutput("hclustHeatmap") %>%
             tagAppendAttributes(class = "box-border"),
-          br(), br()
         ),
         
         # tab: Correlation Heatmaps -------------------------------------------
         tabPanel(
           "Correlation Heatmaps", value = "correlation",
-          # correlation heatmaps: dropdown panel-------------------------------
+          # correlation heatmap plot inputs ----------------------------------
           tags$div(class = "whitespace", tags$p("whitespace")),
-          dropdown(
-            prettyRadioButtons(
-              "cor_cluster", "Cluster by",
-              choices = c("Hierarchical Clustering", "None"),
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            conditionalPanel(
-              "input.cor_cluster == 'Hierarchical Clustering'",
-              pickerInput(
-                "hclust_linkage", "Linkage",
-                choices = c("ward.D", "ward.D2", "single", "complete", 
-                            "average", "mcquitty", "median", "centroid"),
-                selected = "ward.D",
-                options = list(size = 5)
+          fluidRow(
+            # correlation heatmap plot dropdown -------------------------------
+            column(1,
+              dropdown(
+                column(3,
+                  plotCorHeatmapOptions()
+                ),
+                plotOptions(id = "cor", heatmap = TRUE, multicol = T, 
+                            total_width = 9),
+                
+                # button settings
+                circle = TRUE, status = "default", size = "sm",
+                icon = icon("gear"), width = "1000px", style = "material-circle",
+                tooltip = tooltipOptions(title = "Click to see inputs")
               )
-            ),
-            prettyCheckboxGroup(
-              "labels_cor", "Show Axis Labels",
-              choices = c("x", "y"), selected = c("x", "y"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            prettyRadioButtons(
-              "color_theme_cor", "Color Theme",
-              choices = c("Viridis - cool", "Viridis - warm", "Temperature"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            prettyRadioButtons(
-              "color_scale_cor", "Color Scale",
-              choices = c("By magnitude", "By quantile"), 
-              status = "info", animation = "jelly", icon = icon("check")
-            ),
-            conditionalPanel(
-              "input.color_scale_cor == 'By quantile' & input.color_theme_cor != 'Temperature'",
-              numericInput(
-                "color_n_quantiles_cor", "Number of quantiles",
-                value = 5, min = NA, max = NA, step = 1
-              )
-            ),
-            numericInput(
-              "cor_text_size", "Correlation Text Size", value = 0, min = 0
-            ),
-            numericInput(
-              "xtext_cor", "X-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "ytext_cor", "Y-Axis Text Size", value = 12
-            ),
-            numericInput(
-              "height_cor", "Plot Height (px)", value = 500
             ),
             
-            # button settings
-            circle = TRUE, status = "default", size = "sm",
-            icon = icon("gear"), width = "300px", style = "material-circle",
-            tooltip = tooltipOptions(title = "Click to see inputs")
+            # correlation heatmap plot toggles --------------------------------
+            column(11,
+              showToggle(id = "cor", choices = c("GGplot", "Plotly"),
+                         selected = "GGplot")
+            )
           ),
           
           # correlation heatmap -----------------------------------------------
@@ -1074,6 +704,12 @@ server <- function(input, output, session) {
                           sep = input$sep, check.names = F)
     )
     
+  })
+  
+  # missing input checks ---------------------------------------------------
+  output$basicVarsInput <- reactive({
+    vars <- setdiff(c(input$var1, input$var2, input$var3), c("", "None"))
+    return(length(vars) > 0)
   })
   
   # update feature selection if dataInput() changes --------------------------
@@ -1136,19 +772,6 @@ server <- function(input, output, session) {
       choices = plotTypeReactive())
   })
   
-  ### helper functions ------------------------------------------------------
-  addTheme <- function(plt, plotly = F, ...) {
-    if (plotly) {
-      plt <- plt + myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                                 legend_title_size = 14, legend_text_size = 12,
-                                 title_size = 18, axis_line_width = 2.5, ...)
-    } else {
-      plt <- plt + myGGplotTheme(axis_title_size = 14, axis_text_size = 10,
-                                 legend_title_size = 14, legend_text_size = 10,
-                                 strip_text_size = 14, ...)
-    }
-    return(plt)
-  }
   ### data summary: text outputs --------------------------------------------
   output$text_summary <- renderText({
     data <- dataInput()
@@ -1197,7 +820,7 @@ server <- function(input, output, session) {
   })
   
   skimWrapper <- function(skim_out, dtype, digits, sigfig) {
-    if (sigfig  == "Yes") {
+    if (sigfig) {
       sigfig <- "g"
     } else {
       sigfig <- "f"
@@ -1293,42 +916,36 @@ server <- function(input, output, session) {
     skimWrapper(skim_out, "factor", 
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$numeric_table <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "numeric") > 0)
     skimWrapper(skim_out, "numeric",
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$character_table <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "character") > 0)
     skimWrapper(skim_out, "character",
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$logical_table <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "logical") > 0)
     skimWrapper(skim_out, "logical",
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$complex_table <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "complex") > 0)
     skimWrapper(skim_out, "complex",
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$Date <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "Date") > 0)
     skimWrapper(skim_out, "Date",
                 input$digits_summary, input$sigfig_summary)
   })
-  
   output$POSIXct <- renderDT({
     skim_out <- skimData()
     req(sum(skim_out$skim_type == "POSIXct") > 0)
@@ -1398,11 +1015,9 @@ server <- function(input, output, session) {
     plt
   })
   output$dist_plot <- renderPlotly({
-    plt <- makeDistPlot()
-    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
-                    grid_color = ifelse(input$grid_summary, 
-                                        "grey90", input$bg_summary))
-    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+    plt <- makeDistPlot() %>%
+      addPlotOptions(input = input, id = "summary", plotly = T)
+    ggplotly(plt, height = input$height_summary)
   })
   output$dist <- renderUI({
     fluidPage(plotlyOutput("dist_plot", height = "100%"))
@@ -1440,11 +1055,9 @@ server <- function(input, output, session) {
     plt
   })
   output$variances_plot <- renderPlotly({
-    plt <- makeVarPlot()
-    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
-                    grid_color = ifelse(input$grid_summary, 
-                                        "grey90", input$bg_summary))
-    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+    plt <- makeVarPlot() %>%
+      addPlotOptions(input = input, id = "summary", plotly = T)
+    ggplotly(plt, height = input$height_summary)
   })
   output$variances <- renderUI({
     fluidPage(plotlyOutput("variances_plot", height = "100%"))
@@ -1482,11 +1095,9 @@ server <- function(input, output, session) {
     plt
   })
   output$means_plot <- renderPlotly({
-    plt <- makeMeanPlot()
-    plt <- addTheme(plt, plotly = T, background_color = input$bg_summary, 
-                    grid_color = ifelse(input$grid_summary, 
-                                        "grey90", input$bg_summary))
-    ggplotly(plt, height = input$height_summary, dynamicTicks = T)
+    plt <- makeMeanPlot() %>%
+      addPlotOptions(input = input, id = "summary", plotly = T)
+    ggplotly(plt, height = input$height_summary)
   })
   output$means <- renderUI({
     fluidPage(plotlyOutput("means_plot", height = "100%"))
@@ -1500,16 +1111,21 @@ server <- function(input, output, session) {
     data <- data %>%
       select(input$vars_table)
     
-    num_cols <- which(sapply(data, 
-                             FUN = function(x) is.numeric(x) & !is.integer(x)))
-    names(num_cols) <- NULL
-    dt <- datatable(data,
-                    options = list(pageLength = 25,
-                                   scrollX = T, scrollCollapse = T),
-                    filter = "top")
-    if (input$digits != 0) {
-      dt <- dt %>% formatSignif(columns = num_cols, digits = input$digits)
+    if (is.na(input$digits)) {
+      digits <- NULL
+    } else {
+      digits <- input$digits
     }
+    
+    dt <- myDT(
+      data, 
+      digits = digits,
+      sigfig = input$sigfig,
+      rownames = T,
+      options = list(pageLength = 25,
+                     scrollX = T, scrollCollapse = T),
+      filter = "top"
+    )
     dt
   })
   
@@ -1584,15 +1200,9 @@ server <- function(input, output, session) {
         plt_df <- plt_df %>%
           rename(x1 = x, y1 = y)
         plt1 <- plotBarplot(data = plt_df, x.str = "x1", fill.str = color_str) +
-          labs(x = as.character(input$var1), fill = color_label) +
-          myGGplotTheme(axis_title_size = 14, axis_text_size = 12, 
-                        legend_title_size = 14, legend_text_size = 12,
-                        axis_line_width = 2)
+          labs(x = as.character(input$var1), fill = color_label)
         plt2 <- plotBarplot(data = plt_df, x.str = "y1", fill.str = color_str) +
-          labs(x = as.character(input$var2), fill = color_label) +
-          myGGplotTheme(axis_title_size = 14, axis_text_size = 12,
-                        legend_title_size = 14, legend_text_size = 12,
-                        axis_line_width = 2)
+          labs(x = as.character(input$var2), fill = color_label)
         plt <- list(plt1, plt2)
       } else if (num_factors == 1) {
         plt <- plotBoxplot(data = plt_df, 
@@ -1625,7 +1235,8 @@ server <- function(input, output, session) {
       if (!is.null(color_str)) {
         plt <- plot_ly(plt_df, x = ~x, y = ~y, z = ~z, color = ~color,
                        marker = list(size = input$size_basic,
-                                     opacity = input$alpha_basic)) %>%
+                                     opacity = input$alpha_basic),
+                       height = input$height_basic) %>%
           add_markers() %>%
           colorbar(title = input$color_basic) %>%
           layout(scene = list(xaxis = list(title = vars[1]),
@@ -1634,7 +1245,8 @@ server <- function(input, output, session) {
       } else {
         plt <- plot_ly(plt_df, x = ~x, y = ~y, z = ~z,
                        marker = list(size = input$size_basic,
-                                     opacity = input$alpha_basic)) %>%
+                                     opacity = input$alpha_basic),
+                       height = input$height_basic) %>%
           add_markers() %>%
           layout(scene = list(xaxis = list(title = vars[1]),
                               yaxis = list(title = vars[2]),
@@ -1642,19 +1254,6 @@ server <- function(input, output, session) {
       }
     }
     
-    if (num_vars == 2) {
-      if (num_factors != 2) {
-        plt <- plt + 
-          myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                        legend_title_size = 14, legend_text_size = 12,
-                        axis_line_width = 2.5)
-      }
-    } else if (num_vars < 3) {
-      plt <- plt + 
-        myGGplotTheme(axis_title_size = 16, axis_text_size = 12,
-                      legend_title_size = 14, legend_text_size = 12,
-                      axis_line_width = 2.5)
-    }
     plt
   })
   output$basicPlot1 <- renderPlotly({
@@ -1662,19 +1261,13 @@ server <- function(input, output, session) {
     if (length(plt) == 2) {
       plt <- plt[[1]]
     } 
+    
     if ("ggplot" %in% class(plt)) {
-      plt <- plt + theme(
-        panel.background = element_rect(fill = input$bg_basic),
-        panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
-                                                        "grey90", 
-                                                        input$bg_basic),
-                                        size = rel(0.5)),
-        axis.text.x = element_text(size = input$xtext_basic),
-        axis.text.y = element_text(size = input$ytext_basic)
-      )
-      return(ggplotly(plt, height = input$height_basic, dynamicTicks = T))
+      plt <- plt %>%
+        addPlotOptions(input = input, id = "basic", plotly = TRUE)
+      return(ggplotly(plt, height = input$height_basic))
     } else {
-      return(plt %>% layout(height = input$height_basic))
+      return(plt)
     }
   })
   output$basicPlot2 <- renderPlotly({
@@ -1682,24 +1275,18 @@ server <- function(input, output, session) {
     if (length(plt) == 2) {
       plt <- plt[[2]]
     } 
-    plt <- plt + theme(
-      panel.background = element_rect(fill = input$bg_basic),
-      panel.grid.major = element_line(colour = ifelse(input$grid_basic, 
-                                                      "grey90", input$bg_basic),
-                                      size = rel(0.5)),
-      axis.text.x = element_text(size = input$xtext_basic),
-      axis.text.y = element_text(size = input$ytext_basic)
-    )
-    ggplotly(plt, height = input$height_basic, dynamicTicks = T)
+    plt <- plt %>%
+      addPlotOptions(input = input, id = "basic", plotly = TRUE)
+    ggplotly(plt, height = input$height_basic)
   })
   output$basicPlot <- renderUI({
-    
-    # read in data
-    data <- dataInput()
     
     # number of inputted vars
     vars <- setdiff(c(input$var1, input$var2, input$var3), c("", "None"))
     num_vars <- length(vars)
+    
+    # read in data
+    data <- dataInput()
     
     # number of factors
     num_factors <- data %>%
@@ -1712,13 +1299,16 @@ server <- function(input, output, session) {
                column(6, plotlyOutput("basicPlot2", height = "100%")))
     } else if ((num_vars == 3) & (num_factors != 0)) {
       h4("3D scatter plot only accepts numeric variables. Please change variable selection.")
+    } else if (num_vars == 0) {
+      fluidPage(h4("Missing inputs. Please select variables to plot in left sidebar."),
+                plotlyOutput("basicPlot1", height = "100%"))
     } else {
       fluidPage(plotlyOutput("basicPlot1", height = "100%"))
     }
   })  
   
   ### pair plot: plot outputs -----------------------------------------------
-  makePairPlot <- reactive({
+  makePairPlot <- eventReactive(input$submit, {
     req(input$height_pairs)
     req(input$height_pairs > 0)
     req(input$vars_pairs)
@@ -1763,28 +1353,38 @@ server <- function(input, output, session) {
                      color2 = color2, color2.label = color2.label,
                      size = input$size_pairs, alpha = input$alpha_pairs, 
                      cor.text.size = input$corsize_pairs,
-                     subsample = input$subsample_pairs,
-                     axis_title_size = 14, axis_text_size = 10,
-                     legend_title_size = 14, legend_text_size = 10,
-                     strip_text_size = 14, 
-                     background_color = input$bg_pairs,
-                     grid_color = ifelse(input$grid_pairs, 
-                                         "grey90", input$bg_pairs))
+                     subsample = input$subsample_pairs, 
+                     theme_function = addPlotOptions,
+                     input = input, id = "pairs")
+    # axis_title_size = 14, axis_text_size = 10,
+    # legend_title_size = 14, legend_text_size = 10,
+    # strip_text_size = 14, 
+    # background_color = input$bg_pairs,
+    # grid_color = ifelse(input$grid_pairs, 
+    #                     "grey90", input$bg_pairs))
     plt
   })
   output$pairPlot <- renderPlot({
     if (!is.null(input$vars_pairs)) {
-      plt <- makePairPlot() +
-        theme(axis.text = element_text(size = input$xytext_pairs))
+      plt <- makePairPlot()
     } else {
       # initialize empty plot
-      plt <- ggplot(data) +
+      plt <- ggplot(data.frame(x = 1:2, y = 1:2)) +
         labs(x = "", y = "") +
         myGGplotTheme()
     }
     plt
   },
   height = function() input$height_pairs)
+  output$pairs <- renderUI({
+    if (is.null(input$vars_pairs)) {
+      fluidPage(h4("Missing inputs. Please select variables to plot in left sidebar."),
+                plotOutput("pairPlot", height = "auto"))
+    } else {
+      fluidPage(plotOutput("pairPlot", height = "auto") %>%
+                  withSpinner(color = "#18bc9c"))
+    }
+  })
   
   ### dim red plot: plot outputs ---------------------------------------------
   ## pca: plot outputs --------------------------------------------------------
@@ -1792,7 +1392,7 @@ server <- function(input, output, session) {
   get_max_pc <- reactive({
     max(input$max_pc_show_var, input$max_pc_heatmap)
   })
-  pca_plot_out <- reactive({
+  pca_plot_out <- eventReactive(input$submit, {
     req(input$pcs)
     
     data <- dataInput()
@@ -1879,15 +1479,8 @@ server <- function(input, output, session) {
     plt
   })
   output$PCAPlot <- renderPlot({
-    plt <- makePCAPlot()
-    plt <- plt + theme(
-      panel.background = element_rect(fill = input$bg_dimred),
-      panel.grid.major = element_line(colour = ifelse(input$grid_dimred,
-                                                      "grey90", 
-                                                      input$bg_dimred),
-                                      size = rel(0.5)),
-      axis.text = element_text(size = input$xytext_dimred)
-    )
+    plt <- makePCAPlot() %>%
+      addPlotOptions(input = input, id = "dimred", plotly = FALSE)
     plt
   },
   height = function() input$height_dimred)
@@ -1918,23 +1511,11 @@ server <- function(input, output, session) {
         geom_bar(stat = "identity", fill = "#6FBBE3") +
         labs(x = "PC", y = "Prop. of Variance Explained")
     }
-    
-    plt <- plt + 
-      myGGplotTheme(axis_title_size = 14, axis_text_size = 10,
-                    axis_line_width = 2.5)
-    
+    plt
   })
   output$PCAVarPlot <- renderPlotly({
-    plt <- makePCAVarPlot()
-    plt <- plt + theme(
-      panel.background = element_rect(fill = input$bg_pca_var),
-      panel.grid.major = element_line(colour = ifelse(input$grid_pca_var,
-                                                      "grey90", 
-                                                      input$bg_pca_var),
-                                      size = rel(0.5)),
-      axis.text.x = element_text(size = input$xtext_pca_var),
-      axis.text.y = element_text(size = input$ytext_pca_var)
-    )
+    plt <- makePCAVarPlot() %>%
+      addPlotOptions(input = input, id = "pca_var", plotly = FALSE)
     ggplotly(plt, height = input$height_pca_var)
   })
   output$PCAVar <- renderUI({
@@ -1943,8 +1524,8 @@ server <- function(input, output, session) {
   
   # pca loadings plot
   makePCAHeatmapPlot <- reactive({
-    req(input$height_pca_heatmap)
-    req(input$height_pca_heatmap > 0)
+    req(input$height_pc_heatmap)
+    req(input$height_pc_heatmap > 0)
     req(input$dimred_type == "PCA")
     
     data <- dataInput()
@@ -1987,22 +1568,17 @@ server <- function(input, output, session) {
                        x.labels = colnames(pc_df),
                        y.labels = paste0("PC", 1:nrow(pc_df)),
                        position = "identity",
-                       manual.fill = manual.fill, option = viridis_option,
-                       x_text_angle = TRUE,
-                       axis_text_size = 12, axis_title_size = 16,
-                       legend_title_size = 14, legend_text_size = 12,
-                       axis_line_width = 2.5) +
+                       manual.fill = manual.fill, option = viridis_option) +
       labs(x = xlab, y = "PC", fill = input$pc_heatmap_fill)
-    if (input$coord_flip_pc_heatmap) {
-      plt <- plt + coord_flip()
-    }
     plt
   })
   output$PCAHeatmapPlot <- renderPlotly({
-    plt <- makePCAHeatmapPlot() +
-      theme(axis.text.x = element_text(size = input$xtext_pc_heatmap),
-            axis.text.y = element_text(size = input$ytext_pc_heatmap))
-    ggplotly(plt, height = input$height_pca_heatmap)
+    plt <- makePCAHeatmapPlot() %>%
+      addPlotOptions(input = input, id = "pc_heatmap", plotly = TRUE)
+    if (input$coord_flip_pc_heatmap) {
+      plt <- plt + coord_flip()
+    }
+    ggplotly(plt, height = input$height_pc_heatmap)
   })
   output$PCAHeatmap <- renderUI({
     fluidPage(plotlyOutput("PCAHeatmapPlot", height = "100%"))
@@ -2010,7 +1586,7 @@ server <- function(input, output, session) {
   
   ## tsne/umap: plot outputs -------------------------------------------------
   # only perform tsne if selected and if data changed
-  tsne_out <- reactive({
+  tsne_out <- eventReactive(input$submit, {
     req(input$dimred_type == "tSNE")
     
     # only perform on selected numeric features
@@ -2025,7 +1601,7 @@ server <- function(input, output, session) {
   })
   
   # only perform umap if selected and if data changed
-  umap_out <- reactive({
+  umap_out <- eventReactive(input$submit, {
     req(input$dimred_type == "UMAP")
     
     # only perform on selected numeric features
@@ -2079,16 +1655,13 @@ server <- function(input, output, session) {
     plt
   })
   output$tsneUmapPlot <- renderPlotly({
-    plt <- makeTsneUmapPlot()
-    plt <- addTheme(plt, plotly = T, background_color = input$bg_dimred, 
-                    grid_color = ifelse(input$grid_dimred, 
-                                        "grey90", input$bg_dimred)) +
-      theme(axis.text = element_text(size = input$xytext_dimred))
-    ggplotly(plt, height = input$height_dimred, dynamicTicks = T)
+    plt <- makeTsneUmapPlot() %>%
+      addPlotOptions(input = input, id = "dimred", plotly = TRUE)
+    ggplotly(plt, height = input$height_dimred)
   })
   
   ## nmf: plot outputs -----------------------------------------------------
-  nmf_out <- reactive({
+  nmf_out <- eventReactive(input$submit, {
     req(input$dimred_type == "NMF")
     req(input$vars_dimred)
     
@@ -2144,7 +1717,7 @@ server <- function(input, output, session) {
                    clustering_method = input$hclust_linkage_nmf,
                    annotation_col = anno_col,
                    show_colnames = "Samples" %in% input$labels_nmf,
-                   main = "Sample NMF Matrix", fontsize = input$xytext_dimred)
+                   main = "Sample NMF Matrix", fontsize = input$xtext_dimred)
     list(plt = ht, shiny_dev = shiny_dev)
   })
   output$nmfWPlot <- renderPlot({
@@ -2175,7 +1748,7 @@ server <- function(input, output, session) {
                    cluster_cols = input$nmf_cluster_y != "None", 
                    clustering_method = input$hclust_linkage_nmf,
                    show_colnames = "Features" %in% input$labels_nmf,
-                   main = "Feature NMF Matrix", fontsize = input$xytext_dimred)
+                   main = "Feature NMF Matrix", fontsize = input$ytext_dimred)
     list(plt = ht, shiny_dev = shiny_dev)
   })
   output$nmfHPlot <- renderPlot({
@@ -2250,117 +1823,82 @@ server <- function(input, output, session) {
     data
   })
   
-  # reorder the data matrix via hierarchical clustering
-  clusterHeatmap <- reactive({
-    data <- heatmapData()
-    hclust_out_x <- hclust(d = dist(data), 
-                           method = input$hclust_linkage_heatmap)
-    hclust_out_y <- hclust(d = dist(t(data)), 
-                           method = input$hclust_linkage_heatmap)
-    list(x = hclust_out_x$order, y = hclust_out_y$order)
-  })
-  
   # plot heatmap
-  makeHeatmapPlot <- reactive({
+  makeHeatmapPlot <- eventReactive(input$submit, {
     req(input$height_heatmap)
     req(input$height_heatmap > 0)
     
     heatmap_data <- heatmapData()
     
-    # reorder features by hierarchical clustering
-    if (input$heatmap_cluster_x == "Hierarchical Clustering") {
-      cluster_order <- clusterHeatmap()
-      heatmap_data <- heatmap_data[cluster_order$x, ]
-    }
-    if (input$heatmap_cluster_y == "Hierarchical Clustering") {
-      if (!exists("cluster_order")) {
-        cluster_order <- clusterHeatmap()
-      }
-      heatmap_data <- heatmap_data[, cluster_order$y]
-    }
+    args_out <- getHeatmapArgs(input = input)
     
-    # color scheme options
-    if (input$color_theme_heatmap == "Temperature") {
-      manual.fill <- "temperature"
-    } else {
-      manual.fill <- NULL
-      if (str_detect(input$color_theme_heatmap, "cool")) {
-        viridis_option <- "D"
-      } else {
-        viridis_option <- "C"
-      }
-    }
-    if (input$color_scale_heatmap == "By quantile") {
-      col_quantile <- TRUE
-    } else {
-      col_quantile <- FALSE
-    }
-    
-    plt <- plotHeatmap(X = heatmap_data, 
-                       y.labels = rownames(heatmap_data), 
-                       x.labels = colnames(heatmap_data), 
-                       position = "identity", 
-                       manual.fill = manual.fill, option = viridis_option,
-                       col_quantile = col_quantile, 
-                       n_quantiles = input$color_n_quantiles_heatmap,
-                       x_text_angle = T, 
-                       axis_text_size = 12, axis_title_size = 16,
-                       legend_title_size = 14, legend_text_size = 12,
-                       axis_line_width = 2.5) +
+    plt <- plotHclustHeatmap(
+      X = heatmap_data, 
+      # y.groups = y.groups,
+      clust.x = args_out$clust.x,
+      clust.y = args_out$clust.y,
+      linkage.x = args_out$linkage.x,
+      linkage.y = args_out$linkage.y,
+      option = args_out$option,
+      manual.fill = args_out$manual.fill, 
+      col_quantile = args_out$col_quantile, 
+      n_quantiles = args_out$n_quantiles
+    ) +
       labs(x = "Features", y = "Samples", fill = "Value") 
+      
     plt
   })
-  output$heatmapPlot <- renderPlotly({
-    plt <- makeHeatmapPlot() + 
-      theme(axis.text.x = element_text(size = input$xtext_heatmap),
-            axis.text.y = element_text(size = input$ytext_heatmap))
-    
-    # additional plotting options
-    if (!("x" %in% input$labels_heatmap)) {
-      plt <- plt + theme(axis.text.x = element_blank(),
-                         axis.ticks.x = element_blank())
-    }
-    if (!("y" %in% input$labels_heatmap)) {
-      plt <- plt + theme(axis.text.y = element_blank(),
-                         axis.ticks.y = element_blank())
-    }
+  output$heatmapPlot <- renderPlot({
+    plt <- makeHeatmapPlot() %>%
+      addPlotOptions(input = input, id = "heatmap", plotly = FALSE,
+                     heatmap = TRUE)
     if (input$coord_flip_heatmap) {
       plt <- plt + coord_flip()
     }
-    
+    plt
+  },
+  height = function() input$height_heatmap)
+  output$heatmapPlotly <- renderPlotly({
+    plt <- makeRFPredHeatmap() %>%
+      addPlotOptions(input = input, id = "heatmap", plotly = TRUE,
+                     heatmap = TRUE)
+    if (input$coord_flip_heatmap) {
+      plt <- plt + coord_flip()
+    }
     ggplotly(plt, height = input$height_heatmap)
   })
-  
-  # ui heatmap
-  output$Heatmap <- renderUI({
+  output$hclustHeatmap <- renderUI({
     if (((input$vars_select_heatmap == "Manually") & 
          (is.null(input$vars_heatmap))) |
         ((input$vars_select_heatmap == "Randomly") &
          (input$p_heatmap == 0))) {
       flag <- TRUE
     } else if (((input$sample_select_heatmap == "Manually") & 
-         (is.null(input$sample_heatmap))) |
-        ((input$sample_select_heatmap == "Randomly") &
-         (input$p_heatmap_rows == 0))) {
+                (is.null(input$sample_heatmap))) |
+               ((input$sample_select_heatmap == "Randomly") &
+                (input$p_heatmap_rows == 0))) {
       flag <- TRUE
     } else {
       flag <- FALSE
     }
     
     if (flag) {
-      out <- h4("Some inputs are missing. Please provide required inputs using the left sidebar...")
+      out <- h4("Missing inputs. Please select samples to plot and other required inputs in left sidebar.")
     } else {
-      out <- plotlyOutput("heatmapPlot", height = "auto")  %>%
-        withSpinner(color = "#18bc9c")
+      if (input$plottype_heatmap == "GGplot") {
+        out <- plotOutput("heatmapPlot", height = "auto")  %>%
+          withSpinner(color = "#18bc9c")
+      } else if (input$plottype_heatmap_eval == "Plotly") {
+        out <- plotlyOutput("heatmapPlotly", height = "100%")  %>%
+          withSpinner(color = "#18bc9c")
+      }
     }
     out
   })
   
   ### correlation heatmap: plot outputs ---------------------------------------
-  # compute correlation matrix
-  corMat <- reactive({
+  corHeatmapData <- reactive({
     data <- dataInput()
-    
     if (input$dim_select == "Rows") {
       req(input$p_cor_rows > 0)
       num_vars <- which(sapply(data, is.numeric) & 
@@ -2386,98 +1924,48 @@ server <- function(input, output, session) {
           as.data.frame()
       }
     }
-    
-    cor(data, method = tolower(input$cor_type), use = "pairwise.complete.obs")
-  })
-  
-  # reorder the correlation matrix via hierarchical clustering
-  clusterCor <- reactive({
-    cor_mat <- corMat()
-    cor_dist <- as.dist(1 - abs(cor_mat))
-    hclust_out <- hclust(d = cor_dist, method = input$hclust_linkage)
-    hclust_out$order
+    data
   })
   
   # plot correlation heatmap
-  makeCorrelationHeatmapPlot <- reactive({
+  makeCorrelationHeatmapPlot <- eventReactive(input$submit, {
     req(input$height_cor)
     req(input$height_cor > 0)
     
-    cor_mat <- corMat()
+    X <- corHeatmapData()
+    
     if (input$dim_select == "Rows") {
       axis_label <- "Samples"
     } else if (input$dim_select == "Columns") {
       axis_label <- "Features"
     }
     
-    if (input$cor_cluster == "Hierarchical Clustering") {
-      # reorder features by hierarchical clustering
-      cluster_order <- clusterCor()
-      cor_mat <- cor_mat[cluster_order, cluster_order]
-    }
-    
-    # round correlations for viz
-    cor_mat <- round(cor_mat, 2)
-    
-    # color scheme options
-    if (input$color_theme_cor == "Temperature") {
-      manual.fill <- "temperature"
-    } else {
-      manual.fill <- NULL
-      if (str_detect(input$color_theme_cor, "cool")) {
-        viridis_option <- "D"
-      } else {
-        viridis_option <- "C"
-      }
-    }
-    
-    if (input$color_scale_cor == "By quantile") {
-      col_quantile <- TRUE
-    } else {
-      col_quantile <- FALSE
-    }
-    
-    plt <- plotHeatmap(X = cor_mat, 
-                       y.labels = colnames(cor_mat), 
-                       x.labels = colnames(cor_mat), 
-                       text.size = input$cor_text_size,
-                       position = "identity",
-                       manual.fill = manual.fill, option = viridis_option,
-                       col_quantile = col_quantile,
-                       n_quantiles = input$color_n_quantiles_cor,
-                       x_text_angle = T, 
-                       axis_text_size = 12, axis_title_size = 16,
-                       legend_title_size = 14, legend_text_size = 12,
-                       axis_line_width = 2.5) +
-      labs(x = axis_label, y = axis_label, fill = "Cor.") 
+    args_out <- getCorHeatmapArgs(input = input)
+    plt <- plotCorHeatmap(
+      X = X, 
+      cor.type = args_out$cor.type, 
+      clust = args_out$clust, 
+      linkage = args_out$linkage, 
+      text.size = args_out$text.size, 
+      option = args_out$option,
+      manual.fill = args_out$manual.fill, 
+      col_quantile = args_out$col_quantile, 
+      n_quantiles = args_out$n_quantiles
+    ) +
+      labs(x = axis_label, y = axis_label, fill = "Cor.")
     plt
   })
-  output$correlationHeatmapPlot <- renderPlotly({
-    plt <- makeCorrelationHeatmapPlot()
-    
-    # additional plotting options
-    if (!("x" %in% input$labels_cor)) {
-      plt <- plt + theme(axis.text.x = element_blank(),
-                         axis.ticks.x = element_blank())
-    }
-    if (!("y" %in% input$labels_cor)) {
-      plt <- plt + theme(axis.text.y = element_blank(),
-                         axis.ticks.y = element_blank())
-    }
-    if ((input$color_theme_cor == "Temperature") & 
-        (input$color_scale_cor != "By quantile")) {
-      plt <- plt + 
-        scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-                             midpoint = 0, limit = c(-1, 1))
-    }
-    
-    plt <- plt +
-      theme(axis.text.x = element_text(size = input$xtext_cor),
-            axis.text.y = element_text(size = input$ytext_cor))
-    
+  output$correlationHeatmapPlot <- renderPlot({
+    plt <- makeCorrelationHeatmapPlot() %>%
+      addPlotOptions(input = input, id = "cor", plotly = FALSE, heatmap = TRUE)
+    plt
+  },
+  height = function() input$height_cor)
+  output$correlationHeatmapPlotly <- renderPlotly({
+    plt <- makeCorrelationHeatmapPlot() %>%
+      addPlotOptions(input = input, id = "cor", plotly = TRUE, heatmap = TRUE)
     ggplotly(plt, height = input$height_cor)
   })
-  
   output$CorrelationHeatmap <- renderUI({
     
     if (((input$dim_select == "Rows") & (input$p_cor_rows == 0)) |
@@ -2497,6 +1985,13 @@ server <- function(input, output, session) {
     } else {
       out <- plotlyOutput("correlationHeatmapPlot", height = "auto")  %>%
         withSpinner(color = "#18bc9c")
+      if (input$plottype_cor == "GGplot") {
+        out <- plotOutput("correlationHeatmapPlot", height = "auto")  %>%
+          withSpinner(color = "#18bc9c")
+      } else if (input$plottype_cor == "Plotly") {
+        out <- plotlyOutput("correlationHeatmapPlotly", height = "100%")  %>%
+          withSpinner(color = "#18bc9c")
+      }
     }
     out
   })
@@ -2511,6 +2006,7 @@ server <- function(input, output, session) {
   
   ### output options ---------------------------------------------------------
   outputOptions(output, "fileType", suspendWhenHidden = FALSE)  
+  outputOptions(output, "basicVarsInput", suspendWhenHidden = FALSE)  
 }
 
 

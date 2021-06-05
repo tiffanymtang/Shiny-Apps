@@ -34,33 +34,79 @@ localFeatureStabilityRF <- function(rf.fit, X, features = NULL,
     }
   }
   
-  ntrees <- rf.fit$num.trees
-  if (is.null(feature.groups)) {
-    tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))
+  if ("ranger" %in% class(rf.fit)) {
+    ntrees <- rf.fit$num.trees
+    
+    if (is.null(feature.groups)) {
+      tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))
+    } else {
+      tree_infos <- map(1:ntrees, 
+                        ~treeInfo(rf.fit, .x) %>%
+                          left_join(y = feature.groups, 
+                                    by = c("splitvarName" = "feature")) %>%
+                          mutate(splitvarName = group) %>%
+                          select(-group))
+    }
+    
+    if (is.null(features)) {
+      features_orig <- rf.fit$forest$independent.variable.names
+    }
+    
+    if (oob) {
+      oob_idx <- do.call(cbind, rf.fit$inbag.counts) == 0  # oob index
+    }
+    
+  } else if ("randomForest" %in% class(rf.fit)) {
+    ntrees <- rf.fit$ntree
+    
+    if (is.null(feature.groups)) {
+      tree_infos <- map(
+        1:ntrees,
+        ~getTree(rf.fit, .x, labelVar = TRUE) %>%
+          convert2RangerTree()
+      )
+    } else {
+      tree_infos <- map(
+        1:ntrees,
+        ~getTree(rf.fit, .x, labelVar = TRUE) %>%
+          convert2RangerTree() %>%
+          left_join(y = feature.groups, 
+                    by = c("splitvarName" = "feature")) %>%
+          mutate(splitvarName = group) %>%
+          select(-group)
+      )
+    }
+    
+    if (is.null(features)) {
+      features_orig <- names(rf.fit$forest$xlevels)
+    }
+    
+    if (oob) {
+      oob_idx <- rf.fit$inbag == 0  # oob index
+    }
+    
   } else {
-    tree_infos <- map(1:ntrees, 
-                      ~treeInfo(rf.fit, .x) %>%
-                        left_join(y = feature.groups, by = c("splitvarName" = "feature")) %>%
-                        mutate(splitvarName = group) %>%
-                        select(-group))
+    stop("rf.fit must be of class ranger or randomForest.")
   }
+  
   forest_paths <- getForestPaths(tree_infos)
-  terminal_node_ids <- predict(rf.fit, X, type = "terminalNodes")$predictions
+  
+  if ("ranger" %in% class(rf.fit)) {
+    terminal_node_ids <- predict(rf.fit, X, type = "terminalNodes")$predictions
+  } else if ("randomForest" %in% class(rf.fit)) {
+    terminal_node_ids <- attr(predict(rf.fit, X, nodes = TRUE), "nodes")
+  }
   
   if (is.null(features)) {
     if (is.null(feature.groups)) {
-      features <- intersect(colnames(X), rf.fit$forest$independent.variable.names)
+      features <- intersect(colnames(X), features_orig)
     } else {
       features <- feature.groups %>%
-        filter(feature %in% intersect(colnames(X), rf.fit$forest$independent.variable.names)) %>%
+        filter(feature %in% intersect(colnames(X), features_orig)) %>%
         pull(group) %>%
         unique()
     }
     features <- c(paste0(features, c("+")), paste0(features, "-"))
-  }
-  
-  if (oob) {
-    oob_idx <- do.call(cbind, rf.fit$inbag.counts) == 0  # oob index
   }
   
   out <- map_dfr(1:nrow(terminal_node_ids),
@@ -111,18 +157,60 @@ localIntStabilityRF <- function(rf.fit, X, ints, feature.groups = NULL,
     }
   }
   
-  ntrees <- rf.fit$num.trees
-  if (is.null(feature.groups)) {
-    tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))
+  if ("ranger" %in% class(rf.fit)) {
+    ntrees <- rf.fit$num.trees
+    
+    if (is.null(feature.groups)) {
+      tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))
+    } else {
+      tree_infos <- map(1:ntrees, 
+                        ~treeInfo(rf.fit, .x) %>%
+                          left_join(y = feature.groups, 
+                                    by = c("splitvarName" = "feature")) %>%
+                          mutate(splitvarName = group) %>%
+                          select(-group))
+    }
+    
+    if (oob) {
+      oob_idx <- do.call(cbind, rf.fit$inbag.counts) == 0  # oob index
+    }
+    
+  } else if ("randomForest" %in% class(rf.fit)) {
+    ntrees <- rf.fit$ntree
+    
+    if (is.null(feature.groups)) {
+      tree_infos <- map(
+        1:ntrees,
+        ~getTree(rf.fit, .x, labelVar = TRUE) %>%
+          convert2RangerTree()
+      )
+    } else {
+      tree_infos <- map(
+        1:ntrees,
+        ~getTree(rf.fit, .x, labelVar = TRUE) %>%
+          convert2RangerTree() %>%
+          left_join(y = feature.groups, 
+                    by = c("splitvarName" = "feature")) %>%
+          mutate(splitvarName = group) %>%
+          select(-group)
+      )
+    }
+    
+    if (oob) {
+      oob_idx <- rf.fit$inbag == 0  # oob index
+    }
+    
   } else {
-    tree_infos <- map(1:ntrees, 
-                      ~treeInfo(rf.fit, .x) %>%
-                        left_join(y = feature.groups, by = c("splitvarName" = "feature")) %>%
-                        mutate(splitvarName = group) %>%
-                        select(-group))
+    stop("rf.fit must be of class ranger or randomForest.")
   }
+  
   forest_paths <- getForestPaths(tree_infos)
-  terminal_node_ids <- predict(rf.fit, X, type = "terminalNodes")$predictions
+  
+  if ("ranger" %in% class(rf.fit)) {
+    terminal_node_ids <- predict(rf.fit, X, type = "terminalNodes")$predictions
+  } else if ("randomForest" %in% class(rf.fit)) {
+    terminal_node_ids <- attr(predict(rf.fit, X, nodes = TRUE), "nodes")
+  }
   
   if (is.null(ints)) {
     stop("Must provide ints argument.")
@@ -130,10 +218,6 @@ localIntStabilityRF <- function(rf.fit, X, ints, feature.groups = NULL,
     ints_name <- ints
     ints <- str_split(ints, "_")
     names(ints) <- ints_name
-  }
-  
-  if (oob) {
-    oob_idx <- do.call(cbind, rf.fit$inbag.counts) == 0  # oob index
   }
   
   out <- map_dfr(1:nrow(terminal_node_ids),

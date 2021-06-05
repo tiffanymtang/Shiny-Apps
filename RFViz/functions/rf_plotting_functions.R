@@ -787,14 +787,7 @@ plotTree <- function(rf.fit, tree.id) {
     tree_info <- treeInfo(rf.fit, tree.id)
   } else if ("randomForest" %in% class(rf.fit)) {
     tree_info <- getTree(rf.fit, tree.id, labelVar = TRUE) %>%
-      rownames_to_column("nodeID") %>%
-      rename("leftChild" = "left daughter",
-             "rightChild" = "right daughter",
-             "splitvarName" = "split var",
-             "splitval" = "split point") %>%
-      mutate(splitval = ifelse(is.na(prediction), splitval, NA),
-             leftChild = ifelse(is.na(prediction), leftChild, NA),
-             rightChild = ifelse(is.na(prediction), rightChild, NA))
+      convert2RangerTree()
   } else {
     stop("rf.fit must be of class ranger or randomForest.")
   }
@@ -1024,8 +1017,17 @@ plotFeatureImp <- function(rf.fit, min.imp.thr = NULL, sort = TRUE) {
   # - plot = bar plot of variable importance
   #############################
   
-  vimp_df <- data.frame(Feature = names(rf.fit$variable.importance),
-                        Importance = rf.fit$variable.importance)
+  if ("ranger" %in% class(rf.fit)) {
+    vimp_df <- data.frame(Feature = names(rf.fit$variable.importance),
+                          Importance = rf.fit$variable.importance)
+    vimp_name <- paste(capitalize(rf.fit$importance.mode), "Importance")
+  } else if ("randomForest" %in% class(rf.fit)) {
+    vimp_df <- data.frame(Feature = rownames(rf.fit$importance),
+                          Importance = rf.fit$importance[, 1])
+    vimp_name <- paste(colnames(rf.fit$importance)[1], "Importance")
+  } else {
+    stop("RF fit must be of class 'ranger' or 'randomForest'.")
+  }
   if (sort) {
     vimp_df <- vimp_df %>%
       arrange(desc(Importance))
@@ -1036,8 +1038,6 @@ plotFeatureImp <- function(rf.fit, min.imp.thr = NULL, sort = TRUE) {
   } else {
     plt_df <- vimp_df
   }
-  
-  vimp_name <- paste(capitalize(rf.fit$importance.mode), "Importance")
   
   plt <- plt_df %>%
     arrange(desc(Importance)) %>%
@@ -1065,14 +1065,33 @@ plotFeatureSplits <- function(rf.fit, X = NULL, y = NULL, features = NULL) {
   # output: plof of feature splits distribution for each feature specified
   #############################
   
-  ntrees <- rf.fit$num.trees
-  tree_ids <- 1:ntrees
-  names(tree_ids) <- tree_ids
-  
-  tree_infos <- map_dfr(1:ntrees, ~treeInfo(rf.fit, .x), .id = "Tree")
-  
-  if (is.null(features)) {
-    features <- rf.fit$forest$independent.variable.names
+  if ("ranger" %in% class(rf.fit)) {
+    ntrees <- rf.fit$num.trees
+    tree_ids <- 1:ntrees
+    names(tree_ids) <- tree_ids
+    
+    tree_infos <- map_dfr(tree_ids, ~treeInfo(rf.fit, .x), .id = "Tree")
+    
+    if (is.null(features)) {
+      features <- rf.fit$forest$independent.variable.names
+    }
+  } else if ("randomForest" %in% class(rf.fit)) {
+    ntrees <- rf.fit$ntree
+    tree_ids <- 1:ntrees
+    names(tree_ids) <- tree_ids
+    
+    tree_infos <- map_dfr(
+      tree_ids,
+      ~getTree(rf.fit, .x, labelVar = TRUE) %>%
+        convert2RangerTree(),
+      .id = "Tree"
+    )
+    
+    if (is.null(features)) {
+      features <- names(rf.fit$forest$xlevels)
+    }
+  } else {
+    stop("rf.fit must be of class ranger or randomForest.")
   }
   
   if (is.null(X)) {

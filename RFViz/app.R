@@ -503,7 +503,8 @@ ui <- fluidPage(
                          selected = "GGplot"),
               showSquareToggle(id = "show_heatmap_eval",
                                choices = c("Heatmap", "Heatmap+Errors"),
-                               selected = "Heatmap+Errors", full_id = TRUE)
+                               selected = "Heatmap+Errors", full_id = TRUE),
+              refreshBtn(id = "heatmap_eval")
             )
           ),
           
@@ -607,7 +608,8 @@ ui <- fluidPage(
             column(11,
               showToggle(id = "splits", choices = c("GGplot", "Plotly"),
                          selected = "GGplot"),
-              dataSplitToggle(id = "splits")
+              dataSplitToggle(id = "splits"),
+              refreshBtn(id = "splits")
             )
           ),
           
@@ -661,7 +663,8 @@ ui <- fluidPage(
                          selected = "GGplot"),
               dataSplitToggle(id = "lstab", choices = c("OOB", "Test"),
                               selected = "OOB"),
-              showSquareToggle(id = "lstab")
+              showSquareToggle(id = "lstab"),
+              refreshBtn(id = "lstab")
             )
           ),
           
@@ -705,7 +708,8 @@ ui <- fluidPage(
                 plotTypeToggle(id = "Lstab", 
                                choices = "Please select variable(s) first")
               ) %>%
-                tagAppendAttributes(style = "display: inline-block")
+                tagAppendAttributes(style = "display: inline-block"),
+              refreshBtn(id = "lstab_dist")
             )
           ),
           
@@ -767,7 +771,8 @@ ui <- fluidPage(
               )
             ),
             # irf results plot/table toggles --------------------------------
-            column(11, showToggle(id = "irf_res", selected = "GGplot"))
+            column(11, 
+                   showToggle(id = "irf_res", selected = "GGplot"))
           ),
           
           # irf results plot/table --------------------------------------------
@@ -857,7 +862,8 @@ ui <- fluidPage(
                          selected = "GGplot"),
               dataSplitToggle(id = "lstab_int", choices = c("OOB", "Test"),
                               selected = "OOB"),
-              showSquareToggle(id = "lstab_int")
+              showSquareToggle(id = "lstab_int"),
+              refreshBtn(id = "lstab_int")
             )
           ),
           
@@ -904,7 +910,8 @@ ui <- fluidPage(
                 plotTypeToggle(id = "Lstab_int",
                                choices = "Please select variable(s) first")
               ) %>%
-                tagAppendAttributes(style = "display: inline-block")
+                tagAppendAttributes(style = "display: inline-block"),
+              refreshBtn(id = "lstab_dist_int")
             )
           ),
           
@@ -1007,7 +1014,8 @@ ui <- fluidPage(
                                  selected = "MAE", 
                                  full_id = TRUE)
               ) %>%
-                tagAppendAttributes(style = "display: inline-block;")
+                tagAppendAttributes(style = "display: inline-block;"),
+              refreshBtn(id = "heatmap_int")
             )
           ),
           # interaction heatmap plot -----------------------------------------
@@ -1063,20 +1071,6 @@ server <- function(input, output, session) {
     substr(input$file_vargroups_int$datapath,
            start = nchar(input$file_vargroups_int$datapath) - 3,
            stop = nchar(input$file_vargroups_int$datapath))
-  })
-  
-  isYBinaryNum <- reactive({
-    req(!is.null(input$file_ytrain$datapath) | 
-          !is.null(input$file_ytest$datapath))
-    if (!is.null(input$file_ytrain$datapath)) {
-      y <- ytrainInputOrig()
-    } else {
-      y <- ytestInputOrig()
-    }
-    (is.numeric(y)) & (length(unique(y)) == 2)
-  })
-  output$isYBinaryNum <- reactive({
-    isYBinaryNum()
   })
   
   # update data file ------------------------------------------------------
@@ -1233,6 +1227,9 @@ server <- function(input, output, session) {
         rf_fit <- rf_fit$rf.list[[input$irf_iteration]]
       }
     }
+    if ("inbag.counts" %in% names(rf_fit)) {
+      rf_fit$inbag <- do.call(cbind, rf_fit$inbag.counts)
+    } 
     rf_fit
   })
   irfFit <- reactive({
@@ -1352,6 +1349,20 @@ server <- function(input, output, session) {
   })
   output$rfDataUploaded <- reactive({
     return(rfDataUploaded())
+  })
+  
+  isYBinaryNum <- reactive({
+    req(!is.null(input$file_ytrain$datapath) | 
+          !is.null(input$file_ytest$datapath))
+    if (!is.null(input$file_ytrain$datapath)) {
+      y <- ytrainInputOrig()
+    } else {
+      y <- ytestInputOrig()
+    }
+    (is.numeric(y)) & (length(unique(y)) == 2)
+  })
+  output$isYBinaryNum <- reactive({
+    isYBinaryNum()
   })
   
   # update feature selection if dataInput() changes --------------------------
@@ -2200,46 +2211,56 @@ server <- function(input, output, session) {
   })
   predYhat <- reactive({
     rf_fit <- rfFit()
+    if (!any(c("ranger", "randomForest") %in% class(rf_fit))) {
+      stop("RF object must be of class 'ranger' or 'randomForest'.")
+    }
     
     if (input$type_eval == "OOB") {
       X <- xtrainInput()
       y <- ytrainInput()
-      oob_idx <- do.call(cbind, rf_fit$inbag.counts) == 0  # oob index
+      oob_idx <- rf_fit$inbag == 0 # oob index
     } else if (input$type_eval == "Test") {
       X <- xtestInput()
       y <- ytestInput()
     }
     
-    if (is.factor(y) & (nlevels(y)) == 2) {
-      yhat <- predict(rf_fit, X, predict.all = TRUE,
-                      num.threads = 1)$predictions
+    if ((input$type_eval == "OOB") | (is.factor(y) & (nlevels(y) == 2))) {
+      if ("ranger" %in% class(rf_fit)) {
+        yhat <- predict(rf_fit, X, predict.all = TRUE,
+                        num.threads = 1)$predictions
+      } else if ("randomForest" %in% class(rf_fit)) {
+        yhat <- predict(rf_fit, X, predict.all = TRUE,
+                        num.threads = 1)$individual 
+        if (is.factor(y)) {
+          yhat <- apply(yhat, 2, 
+                        function(x) as.numeric(factor(x, levels = levels(y))))
+        }
+      }
+      if (input$type_eval == "OOB") {
+        yhat[!oob_idx] <- NA
+      }
+    } else {
+      if ("ranger" %in% class(rf_fit)) {
+        yhat <- predict(rf_fit, data = X, num.threads = 1)$predictions
+      } else {
+        yhat <- predict(rf_fit, data = X)
+      }
+    }
+    
+    if (is.factor(y) & (nlevels(y) == 2)) {
       if (!((min(yhat) >= 0) & (max(yhat) <= 1))) {
         yhat <- yhat - 1
       }
-      if (input$type_eval == "OOB") {
-        yhat <- rowSums(oob_idx * yhat) / rowSums(oob_idx)
-      } else {
-        yhat <- rowMeans(yhat)
-      }
+      yhat <- rowMeans(yhat, na.rm = T)
     } else if (is.factor(y)) {
       if (input$type_eval == "OOB") {
-        yhat <- predict(rf_fit, data = X, predict.all = TRUE,
-                        num.threads = 1)$predictions
-        yhat[!oob_idx] <- NA
         yhat <- apply(yhat, 1, function(x) names(which.max(table(x)))) %>%
           as.numeric()
         yhat <- factor(levels(y)[yhat], levels = levels(y))
-      } else {
-        yhat <- predict(rf_fit, data = X, num.threads = 1)$predictions
       }
     } else {
       if (input$type_eval == "OOB") {
-        yhat <- predict(rf_fit, data = X, predict.all = TRUE,
-                        num.threads = 1)$predictions
-        yhat[!oob_idx] <- NA
         yhat <- rowMeans(yhat, na.rm = TRUE)
-      } else {
-        yhat <- predict(rf_fit, data = X, num.threads = 1)$predictions
       }
     }
   })
@@ -2352,14 +2373,23 @@ server <- function(input, output, session) {
     if (input$type_eval == "OOB") {
       X <- xtrainInput()
       y <- ytrainInput()
-      oob_idx <- do.call(cbind, rf_fit$inbag.counts) == 0  # oob index
+      oob_idx <- rf_fit$inbag == 0 # oob index
     } else if (input$type_eval == "Test") {
       X <- xtestInput()
       y <- ytestInput()
     }
     
-    yhat <- predict(rf_fit, data = X, predict.all = TRUE,
-                    num.threads = 1)$predictions
+    if ("ranger" %in% class(rf_fit)) {
+      yhat <- predict(rf_fit, X, predict.all = TRUE,
+                      num.threads = 1)$predictions
+    } else if ("randomForest" %in% class(rf_fit)) {
+      yhat <- predict(rf_fit, X, predict.all = TRUE,
+                      num.threads = 1)$individual 
+      if (is.factor(y)) {
+        yhat <- apply(yhat, 2, 
+                      function(x) as.numeric(factor(x, levels = levels(y))))
+      }
+    }
     
     if (is.factor(y) & (nlevels(y) == 2)) {
       if (!((min(yhat) >= 0) & (max(yhat) <= 1))) {
@@ -2368,11 +2398,12 @@ server <- function(input, output, session) {
     }  
     if (input$type_eval == "OOB") {
       yhat[!oob_idx] <- NA
-    } 
+    }
+    
     rownames(yhat) <- rownames(X)
     yhat
   })
-  makeRFPred <- eventReactive(input$submit, {
+  makeRFPred <- reactive({
     yhat_trees <- predYhatTrees()
     if (input$type_eval == "OOB") {
       y <- ytrainInput()
@@ -2464,7 +2495,10 @@ server <- function(input, output, session) {
     out
   })  
   
-  makeRFPredHeatmap <- eventReactive(input$submit, {
+  makeRFPredHeatmap <- eventReactive(input$submit | 
+                                       input$refresh_heatmap_eval |
+                                       !is.null(input$plottype_heatmap_eval) |
+                                       !is.null(input$show_heatmap_eval), {
     req(input$height_heatmap_eval)
     req(input$height_heatmap_eval > 0)
     
@@ -2702,7 +2736,10 @@ server <- function(input, output, session) {
   })
   
   ### vimp: feature splits plot ouptuts ------------------------------------
-  makeRFSplits <- eventReactive(input$submit, {
+  makeRFSplits <- eventReactive(input$submit | 
+                                  input$refresh_splits |
+                                  !is.null(input$plottype_splits) |
+                                  !is.null(input$datasplit_splits), {
     req(input$height_splits)
     req(input$height_splits > 0)
     req(input$vars_vimp)
@@ -2754,7 +2791,11 @@ server <- function(input, output, session) {
   })
 
   ### vimp: local stability plot ouptuts ------------------------------------
-  makeLocalStability <- eventReactive(input$submit, {
+  makeLocalStability <- eventReactive(input$submit | 
+                                        input$refresh_lstab |
+                                        !is.null(input$plottype_lstab) |
+                                        !is.null(input$datasplit_lstab) |
+                                        !is.null(input$show_lstab), {
     req(input$height_lstab)
     req(input$height_lstab > 0)
     req(input$vars_vimp)
@@ -2884,7 +2925,12 @@ server <- function(input, output, session) {
   })
   
   ### vimp: local stability distribution plot ouptuts -------------------------
-  makeLocalStabilityDistPlot <- eventReactive(input$submit, {
+  makeLocalStabilityDistPlot <- eventReactive(
+    input$submit |
+      input$refresh_lstab_dist |
+      !is.null(input$plottype_lstab_dist) |
+      !is.null(input$plotTypeLstab), 
+    {
     lstab_out <- makeLocalStability()
     stab_df <- lstab_out$stab_df
 
@@ -3062,8 +3108,14 @@ server <- function(input, output, session) {
     if (is.factor(y) & (nlevels(y) == 2) & !is.null(input$file_rf$datapath)) {
       rf_fit <- rfFit()
       Xtest <- xtestInput()
-      yhat <- predict(rf_fit, Xtest, predict.all = TRUE,
-                      num.threads = 1)$predictions - 1
+      if ("ranger" %in% class(rf_fit)) {
+        yhat <- predict(rf_fit, Xtest, predict.all = TRUE,
+                        num.threads = 1)$predictions - 1
+      } else {
+        yhat <- predict(rf_fit, Xtest, predict.all = TRUE,
+                        num.threads = 1)$individual %>%
+          apply(., 2, function(x) as.numeric(factor(x, levels = levels(y))) - 1)
+      }
       yhat <- rowMeans(yhat)
     } else {
       yhat <- NULL
@@ -3161,7 +3213,11 @@ server <- function(input, output, session) {
   })  
   
   ### int: local stability plot ouptuts ------------------------------------
-  makeIntLocalStability <- eventReactive(input$submit, {
+  makeIntLocalStability <- eventReactive(input$submit | 
+                                           input$refresh_lstab_int |
+                                           !is.null(input$plottype_lstab_int) |
+                                           !is.null(input$datasplit_lstab_int) |
+                                           !is.null(input$show_lstab_int), {
     req(input$height_lstab_int)
     req(input$height_lstab_int > 0)
     req(input$vars_int)
@@ -3301,7 +3357,12 @@ server <- function(input, output, session) {
   })
   
   ### int: local stability distribution plot ouptuts -------------------------
-  makeIntLocalStabilityDistPlot <- eventReactive(input$submit, {
+  makeIntLocalStabilityDistPlot <- eventReactive(
+    input$submit |
+      input$refresh_lstab_dist_int |
+      !is.null(input$plottype_lstab_dist_int) |
+      !is.null(input$plotTypeLstab_int), 
+    {
     lstab_out <- makeIntLocalStability()
     stab_df <- lstab_out$stab_df
     
@@ -3602,7 +3663,11 @@ server <- function(input, output, session) {
   }) 
   
   ### int: interaction heatmap plot outputs -----------------------------------
-  makeIntHeatmap <- eventReactive(input$submit, {
+  makeIntHeatmap <- eventReactive(input$submit |
+                                    input$refresh_heatmap_int |
+                                    !is.null(input$plottype_heatmap_int) |
+                                    !is.null(input$datasplit_heatmap_int) |
+                                    !is.null(input$show_heatmap_int), {
     
     irf_fit <- irfFit()
     rf_fit <- rfFit()

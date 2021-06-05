@@ -123,8 +123,9 @@ varInputMultiple <- function(id, label, choices,
   )
 }
 
-submitBtn <- function(id, label = "Submit", 
-                      style = "pill", color = "danger", ...) {
+submitBtn <- function(id, label = "Submit", br = TRUE, 
+                      style = "pill", color = "danger",
+                      div_style = "display:inline-block", ...) {
   ##### Function Description ######
   # wrapper to actionBttn() 
   # 
@@ -136,17 +137,53 @@ submitBtn <- function(id, label = "Submit",
   # - ... = other arguments to pass to actionBttn()
   ###################
   
-  list(
-    br(),
-    actionButton(
+  if (br) {
+    out <- list(
+      br(),
+      actionButton(
+        inputId = id,
+        label = label,
+        style = style,
+        color = color,
+        ...
+      ) %>%
+        div(style = div_style)
+    )
+  } else {
+    out <- actionButton(
       inputId = id,
       label = label,
       style = style,
       color = color,
       ...
     ) %>%
-      div(style = "display:inline-block")
-  )
+      div(style = div_style)
+  }
+}
+
+refreshBtn <- function(id, style = "material-circle", color = "default",
+                       size = "sm", right_align = TRUE, ...) {
+  ##### Function Description ######
+  # wrapper to actionBttn() with refresh icon
+  # 
+  # inputs:
+  # - id = id argument in actionBttn()
+  # - style = style argument in actionBttn()
+  # - color = color argument in actionBttn()
+  # - small = small argument in actionBttn()
+  # - right_align = logical; whether or not to right align button
+  # - ... = other arguments to pass to actionBttn()
+  ###################
+  actionBttn(
+    inputId = paste0("refresh_", id),
+    label = NULL,
+    style = style,
+    color = color, 
+    size = size,
+    icon = icon("refresh"),
+    ...
+  ) %>%
+    tagAppendAttributes(style = "float: right")
 }
 
 radioBtns <- function(id, label, choices, selected = NULL,

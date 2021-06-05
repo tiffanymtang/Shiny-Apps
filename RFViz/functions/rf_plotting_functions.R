@@ -839,7 +839,7 @@ plotTree <- function(rf.fit, tree.id) {
   return(plot)
 }
 
-plotLocalStabilityRF <- function(rf.fit, X, y = NULL, 
+plotLocalStabilityRF <- function(rf.fit, X, y = NULL, cached = NULL,
                                  features = NULL, ints = NULL,
                                  feature.groups = NULL, first.only = FALSE,
                                  oob = FALSE, return.pval = FALSE, nperm = 1e4,
@@ -851,6 +851,7 @@ plotLocalStabilityRF <- function(rf.fit, X, y = NULL,
   # - rf.fit = output of ranger() or of class "ranger"
   # - X = data frame of sample design matrix to evaluate local feature staiblity
   # - y = vector of response; only used (and required) if return.pval = TRUE
+  # - cached = cached ouptut of plotLocalStabilityRF() 
   # - features = vector of features to evaluate stability for
   # - feature.groups = data frame of feature to (superfeature) group mapping with columns "feature" and "group"
   # - first.only = logical; whether or not to only include first appearance of feature in tree
@@ -863,28 +864,42 @@ plotLocalStabilityRF <- function(rf.fit, X, y = NULL,
   # output: list of 5:
   # - stab_df = data frame of size n x p with local RF feature stability scores
   # - pval_df = data frame of size p x 1 with permutation p-values
+  # - params = list of parameters
   # - stab_plt = heatmap of local feature stability scores
   # - pval_plt = bar plot of permutation p-values
   # - plot = stab_plt + pval_plt combined
   #############################
   
-  if (!identical(features, "None")) {
+  features_orig <- features
+  ints_orig <- ints
+  if (!is.null(cached)) {
+    if (identical(cached$params$feature.groups, feature.groups) &
+        identical(cached$params$first.only, first.only) &
+        identical(cached$params$oob, oob)) {
+      features <- setdiff(features_orig, colnames(cached$stab_df))
+      ints <- setdiff(ints_orig, colnames(cached$stab_df))
+    }
+  }
+  
+  if (!identical(features, "None") & (length(features) > 0)) {
     stab_df <- localFeatureStabilityRF(rf.fit = rf.fit,
                                        X = X, 
                                        features = features,
                                        feature.groups = feature.groups,
                                        first.only = first.only,
                                        oob = oob)
+  } else {
+    stab_df <- NULL
   }
   
-  if (!is.null(ints)) {
+  if (!is.null(ints) & (length(ints) > 0)) {
     int_stab_df <- localIntStabilityRF(rf.fit = rf.fit,
                                        X = X,
                                        ints = ints,
                                        feature.groups = feature.groups,
                                        first.only = first.only,
                                        oob = oob)
-    if (!identical(features, "None")) {
+    if (!identical(features, "None") & !is.null(stab_df)) {
       stab_df <- cbind(stab_df, int_stab_df)
     } else {
       stab_df <- int_stab_df
@@ -892,6 +907,19 @@ plotLocalStabilityRF <- function(rf.fit, X, y = NULL,
   }
   
   stab_df <- as.data.frame(stab_df)
+  
+  if (!is.null(cached)) {
+    if (identical(cached$params$feature.groups, feature.groups) &
+        identical(cached$params$first.only, first.only) &
+        identical(cached$params$oob, oob)) {
+      if (nrow(stab_df) == 0) {
+        stab_df <- cached$stab_df
+      } else {
+        stab_df <- cbind(stab_df, cached$stab_df) %>%
+          select(features_orig, ints_orig)
+      }
+    }
+  }
   
   if (is.factor(y)) {
     stab_plt <- plotHclustHeatmap(X = stab_df, y.groups = y, ...) +
@@ -903,12 +931,35 @@ plotLocalStabilityRF <- function(rf.fit, X, y = NULL,
   
   if (return.pval & is.factor(y) & (nlevels(y) == 2)) {
     test_features <- colnames(stab_df)
+    if (!is.null(cached)) {
+      if (identical(cached$params$feature.groups, feature.groups) &
+          identical(cached$params$first.only, first.only) &
+          identical(cached$params$oob, oob) &
+          identical(cached$params$nperm, nperm)) {
+        test_features <- setdiff(test_features, colnames(cached$pval_df))
+      }
+    }
+    
     names(test_features) <- test_features
     y_binary <- as.numeric(y) - 1
     pval_df <- map_dfr(test_features,
                        ~runPermutationTest(stab_df = stab_df, y = y_binary,
                                            feature = .x, nperm = nperm)$pval,
                        .id = "Feature")
+    
+    if (!is.null(cached)) {
+      if (identical(cached$params$feature.groups, feature.groups) &
+          identical(cached$params$first.only, first.only) &
+          identical(cached$params$oob, oob) &
+          identical(cached$params$nperm, nperm)) {
+        if (nrow(pval_df) == 0) {
+          pval_df <- cached$pval_df
+        } else {
+          pval_df <- cbind(pval_df, cached$pval_df) %>%
+            select(colnames(stab_df))
+        }
+      }
+    }
     
     xtest_labs <- ggplot_build(stab_plt)$layout$panel_params[[1]]$x$get_labels()
     pval_plt <- pval_df %>%
@@ -945,8 +996,15 @@ plotLocalStabilityRF <- function(rf.fit, X, y = NULL,
     pval_plt <- NULL
     plot_combined <- stab_plt
   }
-    
-  return(list(stab_df = stab_df, pval_df = pval_df, 
+   
+  params <- list(
+    feature.groups = feature.groups,
+    first.only = first.only,
+    oob = oob,
+    nperm = nperm
+  )
+   
+  return(list(stab_df = stab_df, pval_df = pval_df, params = params,
               stab_plt = stab_plt, pval_plt = pval_plt,
               plot = plot_combined))
 }

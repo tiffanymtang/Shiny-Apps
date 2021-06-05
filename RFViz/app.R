@@ -464,17 +464,28 @@ ui <- fluidPage(
             # rf evaluation heatmap plot dropdown -----------------------------
             column(1,
               dropdown(
-                column(5,
+                column(2,
+                  radioBtns(id = "metric_heatmap_eval", label = "Metric",
+                            choices = c("Class", "BalancedClass")),
+                  numericInput("size_heatmap_eval", label = "Point Size",
+                               value = 1, min = 0),
+                  numericInput("lw_heatmap_eval", "Line Width",
+                               value = 1, min = 0),
+                  textInput("heights_heatmap_eval",
+                            "Height Proportions (comma delimited)",
+                            value = "1,4")
+                ),
+                column(4,
                   plotHclustHeatmapOptions(id = "eval", multicol = T, 
                                            column_widths = c(7, 5))
                 ),
-                column(7,
-                  plotOptions(id = "heatmap_eval", heatmap = TRUE, multicol = T)
+                column(6,
+                  plotOptions(id = "heatmap_eval", heatmap = FALSE, multicol = T)
                 ),
                 
                 # button settings
                 circle = TRUE, status = "default", size = "sm",
-                icon = icon("gear"), width = "1000px", style = "material-circle",
+                icon = icon("gear"), width = "1200px", style = "material-circle",
                 tooltip = tooltipOptions(title = "Click to see inputs")
               )
             ),
@@ -482,7 +493,10 @@ ui <- fluidPage(
             # rf evaluation heatmap plot toggles -----------------------------
             column(11,
               showToggle(id = "heatmap_eval", choices = c("GGplot", "Plotly"),
-                         selected = "GGplot")
+                         selected = "GGplot"),
+              showSquareToggle(id = "show_heatmap_eval",
+                               choices = c("Heatmap", "Heatmap+Errors"),
+                               selected = "Heatmap+Errors", full_id = TRUE)
             )
           ),
           
@@ -1028,10 +1042,37 @@ server <- function(input, output, session) {
            start = nchar(input$file_ytest$datapath) - 3,
            stop = nchar(input$file_ytest$datapath))
   })
+  output$fileType_vargroups_lstab <- reactive({
+    substr(input$file_vargroups_lstab$datapath,
+           start = nchar(input$file_vargroups_lstab$datapath) - 3,
+           stop = nchar(input$file_vargroups_lstab$datapath))
+  })
+  output$fileType_vargroups_lstab_int <- reactive({
+    substr(input$file_vargroups_lstab_int$datapath,
+           start = nchar(input$file_vargroups_lstab_int$datapath) - 3,
+           stop = nchar(input$file_vargroups_lstab_int$datapath))
+  })
+  output$fileType_vargroups_int <- reactive({
+    substr(input$file_vargroups_int$datapath,
+           start = nchar(input$file_vargroups_int$datapath) - 3,
+           stop = nchar(input$file_vargroups_int$datapath))
+  })
   
   # update data file ------------------------------------------------------
+  rmCached <- function() {
+    if (exists("lstab_out_cached")) {
+      rm(lstab_out_cached, envir = globalenv())
+    }
+    if (exists("int_lstab_out_cached")) {
+      rm(int_lstab_out_cached, envir = globalenv())
+    }
+    if (exists("indiv_lstab_out_cached")) {
+      rm(indiv_lstab_out_cached, envir = globalenv())
+    }
+  }
   xtrainInput <- reactive({
     req(input$file_xtrain$datapath)
+    rmCached()
     fileType <- substr(input$file_xtrain$datapath, 
                        start = nchar(input$file_xtrain$datapath) - 3,
                        stop = nchar(input$file_xtrain$datapath))
@@ -1053,6 +1094,7 @@ server <- function(input, output, session) {
   })
   xtestInput <- reactive({
     req(input$file_xtest$datapath)
+    rmCached()
     fileType <- substr(input$file_xtest$datapath, 
                        start = nchar(input$file_xtest$datapath) - 3,
                        stop = nchar(input$file_xtest$datapath))
@@ -1074,6 +1116,7 @@ server <- function(input, output, session) {
   })
   ytrainInput <- reactive({
     req(input$file_ytrain$datapath)
+    rmCached()
     fileType <- substr(input$file_ytrain$datapath, 
                        start = nchar(input$file_ytrain$datapath) - 3,
                        stop = nchar(input$file_ytrain$datapath))
@@ -1091,6 +1134,7 @@ server <- function(input, output, session) {
   })
   ytestInput <- reactive({
     req(input$file_ytest$datapath)
+    rmCached()
     fileType <- substr(input$file_ytest$datapath, 
                        start = nchar(input$file_ytest$datapath) - 3,
                        stop = nchar(input$file_ytest$datapath))
@@ -1142,6 +1186,7 @@ server <- function(input, output, session) {
 
   rfInput <- reactive({
     req(input$file_rf$datapath)
+    rmCached()
     readRDS(input$file_rf$datapath)
   })
   rfFit <- reactive({
@@ -1174,7 +1219,72 @@ server <- function(input, output, session) {
   })
   epitreeInput <- reactive({
     req(input$file_epitree$datapath)
+    rmCached()
     readRDS(input$file_epitree$datapath)
+  })
+  
+  lstabVargroupsInput <- reactive({
+    req(input$file_vargroups_lstab$datapath)
+    fileType <- substr(input$file_vargroups_lstab$datapath, 
+                       start = nchar(input$file_vargroups_lstab$datapath) - 3,
+                       stop = nchar(input$file_vargroups_lstab$datapath))
+    out <- switch(
+      fileType,
+      ".rds" = readRDS(input$file_vargroups_lstab$datapath),
+      ".csv" = read.csv(input$file_vargroups_lstab$datapath, 
+                        header = input$header_vargroups_lstab,
+                        check.names = F),
+      ".txt" = read.table(input$file_vargroups_lstab$datapath,
+                          header = input$header_vargroups_lstab,
+                          sep = input$sep_vargroups_lstab, 
+                          check.names = F)
+    )
+    if (is.matrix(out)) {
+      out <- as.data.frame(out)
+    }
+    return(out)
+  })
+  intLstabVargroupsInput <- reactive({
+    req(input$file_vargroups_lstab_int$datapath)
+    fileType <- substr(input$file_vargroups_lstab_int$datapath, 
+                       start = nchar(input$file_vargroups_lstab_int$datapath) - 3,
+                       stop = nchar(input$file_vargroups_lstab_int$datapath))
+    out <- switch(
+      fileType,
+      ".rds" = readRDS(input$file_vargroups_lstab_int$datapath),
+      ".csv" = read.csv(input$file_vargroups_lstab_int$datapath, 
+                        header = input$header_vargroups_lstab_int,
+                        check.names = F),
+      ".txt" = read.table(input$file_vargroups_lstab_int$datapath,
+                          header = input$header_vargroups_lstab_int,
+                          sep = input$sep_vargroups_lstab_int, 
+                          check.names = F)
+    )
+    if (is.matrix(out)) {
+      out <- as.data.frame(out)
+    }
+    return(out)
+  })
+  indivLstabVargroupsInput <- reactive({
+    req(input$file_vargroups_int$datapath)
+    fileType <- substr(input$file_vargroups_int$datapath, 
+                       start = nchar(input$file_vargroups_int$datapath) - 3,
+                       stop = nchar(input$file_vargroups_int$datapath))
+    out <- switch(
+      fileType,
+      ".rds" = readRDS(input$file_vargroups_int$datapath),
+      ".csv" = read.csv(input$file_vargroups_int$datapath, 
+                        header = input$header_vargroups_int,
+                        check.names = F),
+      ".txt" = read.table(input$file_vargroups_int$datapath,
+                          header = input$header_vargroups_int,
+                          sep = input$sep_vargroups_int, 
+                          check.names = F)
+    )
+    if (is.matrix(out)) {
+      out <- as.data.frame(out)
+    }
+    return(out)
   })
   
   # missing input checks ---------------------------------------------------
@@ -1291,11 +1401,24 @@ server <- function(input, output, session) {
     ytrain <- ytrainInput()
     if (all(ytrain %in% 0:1)) {
       eval.metrics <- c("MAE", "Class")
+      eval.metrics.full <- c("Class", "BalancedClass")
     } else {
       eval.metrics <- c("RMSE", "MAE")
+      eval.metrics.full <- c("RMSE", "MSE", "R2", "MAE", "Correlation")
     }
     updatePrettyRadioButtons(session, "err_heatmap_int", 
-                             choices = eval.metrics, selected = eval.metrics[1])
+                             choices = eval.metrics, selected = eval.metrics[1],
+                             prettyOptions = list(
+                               status = "info", animation = "jelly",
+                               icon_btn = icon("check"), bigger = TRUE
+                             ))
+    updatePrettyRadioButtons(session, "metric_heatmap_eval",
+                             choices = eval.metrics.full,
+                             selected = eval.metrics.full[1],
+                             prettyOptions = list(
+                               status = "info", animation = "jelly",
+                               icon_btn = icon("check"), bigger = TRUE
+                             ))
   })
   
   # update plot types if inputs change ---------------------------------------
@@ -2085,8 +2208,7 @@ server <- function(input, output, session) {
       }
     }
   })
-  output$rfAccTable <- renderDT({
-    
+  makeRFAccTable <- reactive({
     yhat <- predYhat()
     if (input$type_eval == "OOB") {
       y <- ytrainInput()
@@ -2117,7 +2239,11 @@ server <- function(input, output, session) {
                                        "MAE", "Correlation"),
                             group = group_var)
     }
+    eval_out
+  })
+  output$rfAccTable <- renderDT({
     
+    eval_out <- makeRFAccTable()
     if (is.na(input$digits_eval)) {
       digits <- NULL
     } else {
@@ -2303,22 +2429,33 @@ server <- function(input, output, session) {
     out
   })  
   
-  makeRFPredHeatmap <- reactive({
+  makeRFPredHeatmap <- eventReactive(input$submit, {
     req(input$height_heatmap_eval)
     req(input$height_heatmap_eval > 0)
     
+    if (input$type_eval == "OOB") {
+      y <- ytrainInput()
+    } else if (input$type_eval == "Test") {
+      y <- ytestInput()
+    }
+    
     yhat_trees <- predYhatTrees()
-    if (is.factor(ytrainInput())) {
-      if (input$type_eval == "OOB") {
-        y.groups <- ytrainInput()
-      } else {
-        y.groups <- ytestInput()
-      }
+    if (is.factor(y)) {
+      y.groups <- y
       names(y.groups) <- rownames(yhat_trees)
     } else {
       y.groups <- NULL
     }
     
+    tree_errs <- map_dbl(1:ncol(yhat_trees),
+                         ~evalPreds(y = y, yhat = yhat_trees[, .x],
+                                    metric = input$metric_heatmap_eval, 
+                                    na.rm = T)$Value) %>%
+      data.frame(tree = 1:ncol(yhat_trees), err = .)
+    err <- makeRFAccTable() %>%
+      filter(Metric == input$metric_heatmap_eval) %>%
+      pull(Value)
+
     if (input$sample_select_heatmap_eval == "Manually") {
       req(input$sample_select_heatmap_eval)
       yhat_trees <- yhat_trees[input$sample_heatmap_eval, ]
@@ -2350,23 +2487,81 @@ server <- function(input, output, session) {
     ) +
       labs(x = "Tree", y = "Samples", fill = "Prediction", 
            title = "Prediciton Heatmap")
+    
+    xtest_labs <- ggplot_build(plt)$layout$panel_params[[1]]$x$get_labels() 
+    err_plt <- tree_errs %>%
+      mutate(tree = factor(tree, levels = xtest_labs)) %>%
+      ggplot() + 
+      aes(x = tree, y = err) +
+      geom_point(size = input$size_heatmap_eval) +
+      geom_hline(yintercept = err, color = "blue",
+                 size = input$lw_heatmap_eval) +
+      labs(y = input$metric_heatmap_eval) +
+      myGGplotTheme() +
+      theme(panel.grid.major.x = element_blank())
+    
+    list(heatmap = plt, err_plt = err_plt)
   })
   output$rfPredHeatmapPlot <- renderPlot({
-    plt <- makeRFPredHeatmap() %>%
-      addPlotOptions(input = input, id = "heatmap_eval", plotly = FALSE,
-                     heatmap = TRUE)
-    if (input$coord_flip_heatmap_eval) {
-      plt <- plt + coord_flip()
+    rfpred_out <- makeRFPredHeatmap() 
+    
+    heatmap_plt <- rfpred_out$heatmap %>%
+      addPlotOptions(input = input, id = "heatmap_eval",
+                     heatmap = T, plotly = F)
+    
+    if (input$show_heatmap_eval == "Heatmap") {
+      plt <- heatmap_plt
+    } else if (input$show_heatmap_eval == "Heatmap+Errors") {
+      heights <- as.numeric(unlist(strsplit(input$heights_heatmap_eval, ",")))
+      heatmap_plt <- heatmap_plt +
+        labs(title = "")
+      err_plt <- rfpred_out$err_plt %>%
+        addPlotOptions(input = input, id = "heatmap_eval",
+                       plotly = FALSE, heatmap = FALSE) +
+        theme(axis.text.x = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.title.x = element_blank(),
+              axis.text.y = element_text(family = "Helvetica", 
+                                         size = input$ytext_lstab))
+      plt <- err_plt + heatmap_plt +
+        patchwork::plot_layout(nrow = 2, ncol = 1, heights = heights)
+    }  
+    if (input$show_heatmap_eval == "Heatmap") {
+      if (input$coord_flip_heatmap_eval) {
+        plt <- plt + coord_flip()
+      }
     }
     plt
   },
   height = function() input$height_heatmap_eval)
   output$rfPredHeatmapPlotly <- renderPlotly({
-    plt <- makeRFPredHeatmap() %>%
-      addPlotOptions(input = input, id = "heatmap_eval", plotly = TRUE,
-                     heatmap = TRUE)
-    if (input$coord_flip_heatmap_eval) {
-      plt <- plt + coord_flip()
+    rfpred_out <- makeRFPredHeatmap() 
+    
+    heatmap_plt <- rfpred_out$heatmap %>%
+      addPlotOptions(input = input, id = "heatmap_eval",
+                     heatmap = T, plotly = F)
+    
+    if (input$show_heatmap_eval == "Heatmap") {
+      plt <- heatmap_plt
+    } else if (input$show_heatmap_eval == "Heatmap+Errors") {
+      heights <- as.numeric(unlist(strsplit(input$heights_heatmap_eval, ",")))
+      heatmap_plt <- heatmap_plt +
+        labs(title = "")
+      err_plt <- rfpred_out$err_plt %>%
+        addPlotOptions(input = input, id = "heatmap_eval",
+                       plotly = FALSE, heatmap = FALSE) +
+        theme(axis.text.x = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.title.x = element_blank(),
+              axis.text.y = element_text(family = "Helvetica", 
+                                         size = input$ytext_lstab))
+      plt <- err_plt + heatmap_plt +
+        patchwork::plot_layout(nrow = 2, ncol = 1, heights = heights)
+    }  
+    if (input$show_heatmap_eval == "Heatmap") {
+      if (input$coord_flip_heatmap_eval) {
+        plt <- plt + coord_flip()
+      }
     }
     ggplotly(plt, height = input$height_heatmap_eval)
   })
@@ -2383,11 +2578,12 @@ server <- function(input, output, session) {
     if (flag) {
       out <- h4("Missing inputs. Please select samples to plot and other required inputs in left sidebar.")
     } else {
-      if (input$plottype_heatmap_eval == "GGplot") {
-        out <- plotOutput("rfPredHeatmapPlot", height = "auto")  %>%
-          withSpinner(color = "#18bc9c")
-      } else if (input$plottype_heatmap_eval == "Plotly") {
+      if ((input$plottype_heatmap_eval == "Plotly") & 
+          (input$show_heatmap_eval != "Heatmap+Errors")) {
         out <- plotlyOutput("rfPredHeatmapPlotly", height = "100%")  %>%
+          withSpinner(color = "#18bc9c")
+      } else {
+        out <- plotOutput("rfPredHeatmapPlot", height = "auto")  %>%
           withSpinner(color = "#18bc9c")
       }
     }
@@ -2475,7 +2671,7 @@ server <- function(input, output, session) {
     req(input$height_splits)
     req(input$height_splits > 0)
     req(input$vars_vimp)
-    
+
     rf_fit <- rfFit()
     X <- NULL
     y <- NULL
@@ -2490,7 +2686,7 @@ server <- function(input, output, session) {
         y <- ytestInput()
       }
     }
-    
+
     splits_out <- plotFeatureSplits(rf.fit = rf_fit, X = X, y = y,
                                     features = input$vars_vimp) +
       labs(title = "Distribution of RF Split Thresholds")
@@ -2501,7 +2697,7 @@ server <- function(input, output, session) {
     plt <- makeRFSplits() %>%
       addPlotOptions(input = input, id = "splits", plotly = FALSE)
     plt
-  }, 
+  },
   height = function() input$height_splits)
   output$rfSplitsPlotly <- renderPlotly({
     plt <- makeRFSplits() %>%
@@ -2521,7 +2717,7 @@ server <- function(input, output, session) {
     }
     out
   })
-  
+
   ### vimp: local stability plot ouptuts ------------------------------------
   makeLocalStability <- eventReactive(input$submit, {
     req(input$height_lstab)
@@ -2537,6 +2733,10 @@ server <- function(input, output, session) {
       y <- ytestInput()
     }
     
+    if (!exists("lstab_out_cached")) {
+      lstab_out_cached <- NULL
+    }
+    
     args_out <- getHeatmapArgs(input = input, id = "lstab")
     if (!is.null(args_out$manual.fill)) {
       z.range <- c(0, 1)
@@ -2544,9 +2744,16 @@ server <- function(input, output, session) {
       z.range <- NULL
     }
     
+    if (!is.null(input$file_vargroups_lstab$datapath)) {
+      feature.groups <- lstabVargroupsInput()
+    } else {
+      feature.groups <- NULL
+    }
+    
     lstab_out <- plotLocalStabilityRF(
-      rf.fit = rf_fit, X = X, y = y, 
-      features = c(paste0(input$vars_vimp, "+"), paste0(input$vars_vimp, "-")), 
+      rf.fit = rf_fit, X = X, y = y, cached = lstab_out_cached,
+      features = c(paste0(input$vars_vimp, "+"), paste0(input$vars_vimp, "-")),
+      feature.groups = feature.groups,
       first.only = input$first_lstab, 
       oob = input$datasplit_lstab == "OOB", 
       return.pval = TRUE,
@@ -2563,11 +2770,12 @@ server <- function(input, output, session) {
       n_quantiles = args_out$n_quantiles,
       z.range = z.range
     )
+    lstab_out_cached <<- lstab_out
     lstab_out
   })
   output$localStabilityPlot <- renderPlot({
     lstab_out <- makeLocalStability()
-    if (input$show_lstab == "Heatmap") {
+    if (is.null(lstab_out$pval_plt) | (input$show_lstab == "Heatmap")) {
       plt <- lstab_out$stab_plt
       hmap <- TRUE
     } else if (input$show_lstab == "P-values") {
@@ -2587,7 +2795,7 @@ server <- function(input, output, session) {
               axis.title.x = element_blank(),
               axis.text.y = element_text(family = "Helvetica", 
                                          size = input$ytext_lstab))
-    } else if (input$show_lstab == "Heatmap") {
+    } else if (is.null(lstab_out$pval_plt) | (input$show_lstab == "Heatmap")) {
       if (input$coord_flip_heatmap_lstab) {
         plt <- plt + coord_flip()
       }
@@ -2644,7 +2852,7 @@ server <- function(input, output, session) {
   makeLocalStabilityDistPlot <- eventReactive(input$submit, {
     lstab_out <- makeLocalStability()
     stab_df <- lstab_out$stab_df
-    
+
     if (input$datasplit_lstab == "OOB") {
       X <- xtrainInput()
       y <- ytrainInput()
@@ -2652,27 +2860,27 @@ server <- function(input, output, session) {
       X <- xtestInput()
       y <- ytestInput()
     }
-    
+
     plt_df <- stab_df %>%
       select(all_of(input$vars_lstab_dist)) %>%
       cbind(., y = y) %>%
       gather(key = "Feature", value = "Stability", -y)
-    
+
     # initialize empty plot
     plt <- ggplot(plt_df) +
       labs(x = "", y = "") +
       myGGplotTheme()
-    
+
     # make plot
     if (input$plotTypeLstab == "histogram") {
       plt <- plotHistogram(data = plt_df, position = "identity",
                            fill.str = "y", x.str = "Stability",
-                           bins = input$bins_lstab_dist, 
+                           bins = input$bins_lstab_dist,
                            alpha = input$alpha_lstab_dist) +
         facet_wrap(~ Feature, scales = "free_y") +
         labs(x = "Local Stability Score")
     } else if (input$plotTypeLstab == "density") {
-      plt <- plotDensity(data = plt_df, 
+      plt <- plotDensity(data = plt_df,
                          fill.str = "y", x.str = "Stability",
                          alpha = input$alpha_lstab_dist) +
         facet_wrap(~ Feature, scales = "free_y") +
@@ -2688,8 +2896,8 @@ server <- function(input, output, session) {
       } else {
         color.str <- NULL
       }
-      plt <- plotScatter(data = cbind(plt_df, color = X[, color.str]), 
-                         x.str = "Stability", y.str = "y", color.str = "color", 
+      plt <- plotScatter(data = cbind(plt_df, color = X[, color.str]),
+                         x.str = "Stability", y.str = "y", color.str = "color",
                          alpha = input$alpha_lstab_dist,
                          size = input$size_lstab_dist) +
         facet_wrap(~ Feature) +
@@ -2718,8 +2926,8 @@ server <- function(input, output, session) {
         withSpinner(color = "#18bc9c")
     }
     out
-  })  
-  
+  })
+
   ### int: irf results plot outputs -------------------------------------------
   makeiRFResults <- reactive({
     req(input$height_irf_res)
@@ -2939,9 +3147,20 @@ server <- function(input, output, session) {
       z.range <- NULL
     }
     
+    if (!exists("int_lstab_out_cached")) {
+      int_lstab_out_cached <- NULL
+    }
+    
+    if (!is.null(input$file_vargroups_lstab_int$datapath)) {
+      feature.groups <- intLstabVargroupsInput()
+    } else {
+      feature.groups <- NULL
+    }
+    
     lstab_out <- plotLocalStabilityRF(
-      rf.fit = rf_fit, X = X, y = y, 
+      rf.fit = rf_fit, X = X, y = y, cached = int_lstab_out_cached,
       features = "None",
+      feature.groups = feature.groups,
       ints = input$vars_int, 
       first.only = input$first_lstab_int, 
       oob = input$datasplit_lstab_int == "OOB", 
@@ -2959,7 +3178,7 @@ server <- function(input, output, session) {
       n_quantiles = args_out$n_quantiles,
       z.range = z.range
     )
-    
+    int_lstab_out_cached <<- lstab_out
     lstab_out
   })
   output$intLocalStabilityPlot <- renderPlot({
@@ -3227,8 +3446,18 @@ server <- function(input, output, session) {
       y <- ytestInput()
     }
     
+    if (!exists("indiv_lstab_out_cached")) {
+      indiv_lstab_out_cached <- NULL
+    }
+    
+    if (!is.null(input$file_vargroups_int$datapath)) {
+      feature.groups <- indivLstabVargroupsInput()
+    } else {
+      feature.groups <- NULL
+    }
+    
     lstab_out <- plotLocalStabilityRF(
-      rf.fit = rf_fit, X = X, y = y, 
+      rf.fit = rf_fit, X = X, y = y, cached = indiv_lstab_out_cached,
       features = str_split(input$var_int, "_")[[1]],
       ints = input$var_int, 
       first.only = input$first_lstab_ft_int, 
@@ -3238,7 +3467,7 @@ server <- function(input, output, session) {
       point.size = input$size_lstab_ft_int, 
       heights = as.numeric(unlist(strsplit(input$heights_lstab_ft_int, ",")))
     )
-    
+    indiv_lstab_out_cached <<- lstab_out
     lstab_out
   })
   output$localStabilityIntPlot <- renderPlot({
@@ -3412,6 +3641,9 @@ server <- function(input, output, session) {
   outputOptions(output, "fileType_xtest", suspendWhenHidden = FALSE)  
   outputOptions(output, "fileType_ytrain", suspendWhenHidden = FALSE)  
   outputOptions(output, "fileType_ytest", suspendWhenHidden = FALSE)  
+  outputOptions(output, "fileType_vargroups_lstab", suspendWhenHidden = FALSE)  
+  outputOptions(output, "fileType_vargroups_lstab_int", suspendWhenHidden = FALSE)  
+  outputOptions(output, "fileType_vargroups_int", suspendWhenHidden = FALSE)  
   outputOptions(output, "rf_type", suspendWhenHidden = FALSE)  
   outputOptions(output, 'trainDataUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'testDataUploaded', suspendWhenHidden=FALSE)

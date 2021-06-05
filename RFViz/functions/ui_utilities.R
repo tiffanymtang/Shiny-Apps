@@ -513,6 +513,13 @@ plotLocalStabilityRFOptions <- function(id) {
   # basic shiny input arguments for plotLocalStabilityRF()
   ###################
   list(
+    fileUpload(
+      id = paste0("vargroups_", id), 
+      label = "Variable Groups"
+    ),
+    # bsTooltip(id = "file_vargroups_lstab", 
+    #           title = "A data frame mapping with two columns 'Feature' and 'Group'", 
+    #           placement = "bottom", trigger = "hover", options = NULL),
     materialSwitch(
       paste0("first_", id), HTML("<b>Count First Split Only</b>"), 
       value = TRUE, status = "info"

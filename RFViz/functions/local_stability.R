@@ -28,6 +28,12 @@ localFeatureStabilityRF <- function(rf.fit, X, features = NULL,
   # output:
   # - data frame of size n x p with local RF feature stability scores
   #############################
+  if (!is.null(feature.groups)) {
+    if (!all(c("feature", "group") %in% colnames(feature.groups))) {
+      stop("feature.groups must be a data.frame with the columns 'feature' and 'group'.")
+    }
+  }
+  
   ntrees <- rf.fit$num.trees
   if (is.null(feature.groups)) {
     tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))
@@ -99,6 +105,12 @@ localIntStabilityRF <- function(rf.fit, X, ints, feature.groups = NULL,
   # output:
   # - data frame of size n x p with local RF interaction stability scores
   #############################
+  if (!is.null(feature.groups)) {
+    if (!all(c("feature", "group") %in% colnames(feature.groups))) {
+      stop("feature.groups must be a data.frame with the columns 'feature' and 'group'.")
+    }
+  }
+  
   ntrees <- rf.fit$num.trees
   if (is.null(feature.groups)) {
     tree_infos <- map(1:ntrees, ~treeInfo(rf.fit, .x))

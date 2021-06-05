@@ -61,6 +61,13 @@ ui <- fluidPage(
           fileUpload(id = "ytrain", label = "Training y"),
           fileUpload(id = "xtest", label = "Test X"),
           fileUpload(id = "ytest", label = "Test y"),
+          conditionalPanel(
+            "output.isYBinaryNum",
+            checkbox(id = "ybinary", 
+                     label = "Treat binary y as categorical response.", 
+                     value = TRUE),
+            br()
+          ),
           
           # rf/irf upload ----------------------------------------------------
           fileInput(
@@ -1058,6 +1065,20 @@ server <- function(input, output, session) {
            stop = nchar(input$file_vargroups_int$datapath))
   })
   
+  isYBinaryNum <- reactive({
+    req(!is.null(input$file_ytrain$datapath) | 
+          !is.null(input$file_ytest$datapath))
+    if (!is.null(input$file_ytrain$datapath)) {
+      y <- ytrainInputOrig()
+    } else {
+      y <- ytestInputOrig()
+    }
+    (is.numeric(y)) & (length(unique(y)) == 2)
+  })
+  output$isYBinaryNum <- reactive({
+    isYBinaryNum()
+  })
+  
   # update data file ------------------------------------------------------
   rmCached <- function() {
     if (exists("lstab_out_cached")) {
@@ -1114,7 +1135,7 @@ server <- function(input, output, session) {
     }
     return(out)
   })
-  ytrainInput <- reactive({
+  ytrainInputOrig <- reactive({
     req(input$file_ytrain$datapath)
     rmCached()
     fileType <- substr(input$file_ytrain$datapath, 
@@ -1132,7 +1153,14 @@ server <- function(input, output, session) {
                           check.names = F)[, 1]
     )
   })
-  ytestInput <- reactive({
+  ytrainInput <- reactive({
+    y <- ytrainInputOrig()
+    if (isYBinaryNum() & input$ybinary) {
+      y <- as.factor(y)
+    }
+    y
+  })
+  ytestInputOrig <- reactive({
     req(input$file_ytest$datapath)
     rmCached()
     fileType <- substr(input$file_ytest$datapath, 
@@ -1149,6 +1177,13 @@ server <- function(input, output, session) {
                           sep = input$sep_ytest, 
                           check.names = F)[, 1]
     )
+  })
+  ytestInput <- reactive({
+    y <- ytestInputOrig()
+    if (isYBinaryNum() & input$ybinary) {
+      y <- as.factor(y)
+    }
+    y
   })
   dataInputBasic <- reactive({
     req(input$datasplit_basic)
@@ -3650,6 +3685,7 @@ server <- function(input, output, session) {
   outputOptions(output, 'yDataUploaded', suspendWhenHidden=FALSE)
   outputOptions(output, 'basicVarsInput', suspendWhenHidden=FALSE)
   outputOptions(output, 'rfDataUploaded', suspendWhenHidden=FALSE)
+  outputOptions(output, 'isYBinaryNum', suspendWhenHidden=FALSE)
 }
 
 

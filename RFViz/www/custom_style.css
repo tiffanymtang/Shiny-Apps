@@ -106,9 +106,16 @@
   border-top: 0px;
 }
 
+.container-fluid {
+  overflow: hidden;
+}
+
 #side-panel {
   margin-left: -30px;
   margin-top: -11px;
+  margin-bottom: -10000px; /* any large number will do */
+  padding-bottom: 10000px; 
+  /*overflow: hidden; */
 }
 
 hr {

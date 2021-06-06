@@ -1,6 +1,9 @@
 # script with utility functions for ui in shiny apps
 
 library(tidyverse)
+library(shiny)
+library(shinyWidgets)
+library(shinyBS)
 
 isnull <- function(id, input = TRUE) {
   if (input) {
@@ -12,7 +15,56 @@ isnull <- function(id, input = TRUE) {
   return(out)
 }
 
-fileUpload <- function(id, label) {
+addTooltipBtn <- function(label, tooltip_id, icon_btn = icon("question"),
+                          style = "default", size = "extra-small", margin = 6,
+                          ...) {
+  if (missing(label)) {
+    out <- bsButton(
+      inputId = paste0("tooltip_", tooltip_id), 
+      label = "", 
+      icon = icon_btn, 
+      style = style,
+      size = size,
+      ...
+    )
+  } else {
+    out <- HTML(
+      paste(label,
+            bsButton(
+              inputId = paste0("tooltip_", tooltip_id), 
+              label = "", 
+              icon = icon_btn, 
+              style = style,
+              size = size,
+              ...
+            ) %>%
+              tagAppendAttributes(style = paste0("margin-left: ", margin, "px")))
+    )
+  }
+  return(out)
+}
+
+addTooltipPopover <- function(tooltip_id, title, content, 
+                              placement = "right", trigger = "focus",
+                              options = list(container = "body"), ...) {
+  bsPopover(
+    id = paste0("tooltip_", tooltip_id),
+    title = title,
+    content = content,
+    placement = placement, 
+    trigger = trigger, 
+    options = options,
+    ...
+  )
+}
+
+fileUpload <- function(id, label, tooltip = FALSE,
+                       tooltip_title = "", tooltip_content = "",
+                       tooltip_placement = "right", tooltip_trigger = "focus",
+                       tooltip_options = list(container = "body"),
+                       tooltip_icon_btn = icon("question"),
+                       tooltip_style = "default", tooltip_size = "extra-small",
+                       tooltip_margin = 6) {
   ##### Function Description ######
   # function to upload files (.csv, .txt, .rds)
   # 
@@ -26,10 +78,19 @@ fileUpload <- function(id, label) {
     id <- paste0("file_", id)
   }
   
-  list(
+  label <- paste(label, "(.csv, .rds, .txt)")
+  if (tooltip) {
+    label <- addTooltipBtn(tooltip_id = id, label = label, 
+                           icon_btn = tooltip_icon_btn, 
+                           style = tooltip_style, 
+                           size = tooltip_size,
+                           margin = tooltip_margin)
+  }
+  
+  out <- list(
     fileInput(
       inputId = id, 
-      label = paste(label, "(.csv, .rds, .txt)"), 
+      label = label, 
       multiple = FALSE, accept = c(".rds", ".csv", ".txt")
     ),
     conditionalPanel(
@@ -54,6 +115,19 @@ fileUpload <- function(id, label) {
       )
     )
   )
+  
+  if (tooltip) {
+    out <- c(out,
+             list(
+               addTooltipPopover(tooltip_id = id, 
+                                 title = tooltip_title, 
+                                 content = tooltip_content, 
+                                 placement = tooltip_content, 
+                                 trigger = tooltip_trigger, 
+                                 options = tooltip_options)
+             ))
+  }
+  return(out)
 }
 
 varInput <- function(id, label, choices, 
@@ -123,8 +197,9 @@ varInputMultiple <- function(id, label, choices,
   )
 }
 
-submitBtn <- function(id, label = "Submit", 
-                      style = "pill", color = "danger", ...) {
+submitBtn <- function(id, label = "Submit", br = TRUE, 
+                      style = "pill", color = "danger",
+                      div_style = "display:inline-block", ...) {
   ##### Function Description ######
   # wrapper to actionBttn() 
   # 
@@ -136,17 +211,53 @@ submitBtn <- function(id, label = "Submit",
   # - ... = other arguments to pass to actionBttn()
   ###################
   
-  list(
-    br(),
-    actionButton(
+  if (br) {
+    out <- list(
+      br(),
+      actionButton(
+        inputId = id,
+        label = label,
+        style = style,
+        color = color,
+        ...
+      ) %>%
+        div(style = div_style)
+    )
+  } else {
+    out <- actionButton(
       inputId = id,
       label = label,
       style = style,
       color = color,
       ...
     ) %>%
-      div(style = "display:inline-block")
-  )
+      div(style = div_style)
+  }
+}
+
+refreshBtn <- function(id, style = "material-circle", color = "default",
+                       size = "sm", right_align = TRUE, ...) {
+  ##### Function Description ######
+  # wrapper to actionBttn() with refresh icon
+  # 
+  # inputs:
+  # - id = id argument in actionBttn()
+  # - style = style argument in actionBttn()
+  # - color = color argument in actionBttn()
+  # - small = small argument in actionBttn()
+  # - right_align = logical; whether or not to right align button
+  # - ... = other arguments to pass to actionBttn()
+  ###################
+  actionBttn(
+    inputId = paste0("refresh_", id),
+    label = NULL,
+    style = style,
+    color = color, 
+    size = size,
+    icon = icon("refresh"),
+    ...
+  ) %>%
+    tagAppendAttributes(style = "float: right")
 }
 
 radioBtns <- function(id, label, choices, selected = NULL,
@@ -178,7 +289,7 @@ radioBtns <- function(id, label, choices, selected = NULL,
 
 checkbox <- function(id, label, value = FALSE, 
                       status = "info", animation = "jelly",
-                      icon_btn = icon("check"), ...) {
+                      icon_btn = icon("check"), bigger = TRUE, ...) {
   ##### Function Description ######
   # wrapper to prettyCheckbox() 
   # 
@@ -513,6 +624,13 @@ plotLocalStabilityRFOptions <- function(id) {
   # basic shiny input arguments for plotLocalStabilityRF()
   ###################
   list(
+    fileUpload(
+      id = paste0("vargroups_", id), 
+      label = "Variable Groups",
+      tooltip = TRUE, 
+      tooltip_title = "Variable Groups",
+      tooltip_content = "Please upload a data frame with two columns named 'feature' and 'group' that maps each feature to a larger super-feature group."
+    ),
     materialSwitch(
       paste0("first_", id), HTML("<b>Count First Split Only</b>"), 
       value = TRUE, status = "info"

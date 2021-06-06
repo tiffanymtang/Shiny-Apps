@@ -57,10 +57,18 @@ ui <- fluidPage(
         bsCollapsePanel(
           "File Upload", 
           # data upload ----------------------------------------------------
-          fileUpload(id = "xtrain", label = "Training X"),
-          fileUpload(id = "ytrain", label = "Training y"),
-          fileUpload(id = "xtest", label = "Test X"),
-          fileUpload(id = "ytest", label = "Test y"),
+          fileUpload(id = "xtrain", label = "Training X", tooltip = TRUE,
+                     tooltip_title = "Training X", 
+                     tooltip_content = "Please upload the training X (features) data frame/matrix."),
+          fileUpload(id = "ytrain", label = "Training y", tooltip = TRUE,
+                     tooltip_title = "Training y",
+                     tooltip_content = "Please upload the training y (response) vector."),
+          fileUpload(id = "xtest", label = "Test X", tooltip = TRUE,
+                     tooltip_title = "Test X",
+                     tooltip_content = "Please upload the test X (features) data frame/matrix."),
+          fileUpload(id = "ytest", label = "Test y", tooltip = TRUE,
+                     tooltip_title = "Test y",
+                     tooltip_content = "Please upload the test y (response) vector."),
           conditionalPanel(
             "output.isYBinaryNum",
             checkbox(id = "ybinary", 
@@ -71,9 +79,13 @@ ui <- fluidPage(
           
           # rf/irf upload ----------------------------------------------------
           fileInput(
-            inputId = "file_rf", label = "RF/iRF Output (.rds)", 
+            inputId = "file_rf", 
+            label = addTooltipBtn(label = "RF/iRF Output (.rds) ", 
+                                  tooltip_id = "rf"), 
             multiple = FALSE, accept = c(".rds")
           ),
+          addTooltipPopover(tooltip_id = "rf", title = "RF/iRF Output", 
+                            content = "Please upload the output of ranger(), randomForest(), or iRF()."),
           conditionalPanel(
             condition = "output.rf_type == 'irf'",
             numericInput("irf_iteration", "iRF Iteration", value = 1, min = 1)
@@ -81,9 +93,13 @@ ui <- fluidPage(
           
           # epitree upload ---------------------------------------------------
           fileInput(
-            inputId = "file_epitree", label = "Epitree Output (.rds)", 
+            inputId = "file_epitree", 
+            label = addTooltipBtn(label = "Epitree Output (.rds)",
+                                  tooltip_id = "epitree"), 
             multiple = FALSE, accept = c(".rds")
           ),
+          addTooltipPopover(tooltip_id = "epitree", title = "Epitree Output", 
+                            content = "Please upload the output of epitree()."),
           
           # style ------------------------------------------------------------
           style = "default"

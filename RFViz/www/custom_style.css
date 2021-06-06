@@ -60,19 +60,18 @@
   /*top: 9.5rem;*/
 }
 
-/*.btn-group>.btn:first-child {
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  padding: 0px;
-}*/
-
 .btn-circle>.radioGroupButtons button {
   border-radius: 50%;
 }
 
 .btn-margin {
   margin-right: 32px;
+}
+
+.btn-xs, .btn-group-xs>.btn {
+  font-size: 9px;
+  opacity: 0.6;
+  padding: 0px 3px;
 }
 
 .panel {

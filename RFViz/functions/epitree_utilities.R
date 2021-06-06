@@ -3,9 +3,9 @@ library(doParallel)
 
 source("irf_utilities.R")
 
-runEpitree <- function(Xtrain, ytrain, Xtest, ytest, ints, 
-                       ints.group = NULL, ints.group.weights = NULL,
-                       B = 100, ncores = 1) {
+epitree <- function(Xtrain, ytrain, Xtest, ytest, ints, 
+                    ints.group = NULL, ints.group.weights = NULL,
+                    B = 100, ncores = 1) {
   ####### Function Description ########
   #' Run epitree pipeline
   #'

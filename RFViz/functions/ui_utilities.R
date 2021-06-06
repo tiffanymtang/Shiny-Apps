@@ -1,6 +1,9 @@
 # script with utility functions for ui in shiny apps
 
 library(tidyverse)
+library(shiny)
+library(shinyWidgets)
+library(shinyBS)
 
 isnull <- function(id, input = TRUE) {
   if (input) {
@@ -12,7 +15,56 @@ isnull <- function(id, input = TRUE) {
   return(out)
 }
 
-fileUpload <- function(id, label) {
+addTooltipBtn <- function(label, tooltip_id, icon_btn = icon("question"),
+                          style = "default", size = "extra-small", margin = 6,
+                          ...) {
+  if (missing(label)) {
+    out <- bsButton(
+      inputId = paste0("tooltip_", tooltip_id), 
+      label = "", 
+      icon = icon_btn, 
+      style = style,
+      size = size,
+      ...
+    )
+  } else {
+    out <- HTML(
+      paste(label,
+            bsButton(
+              inputId = paste0("tooltip_", tooltip_id), 
+              label = "", 
+              icon = icon_btn, 
+              style = style,
+              size = size,
+              ...
+            ) %>%
+              tagAppendAttributes(style = paste0("margin-left: ", margin, "px")))
+    )
+  }
+  return(out)
+}
+
+addTooltipPopover <- function(tooltip_id, title, content, 
+                              placement = "right", trigger = "focus",
+                              options = list(container = "body"), ...) {
+  bsPopover(
+    id = paste0("tooltip_", tooltip_id),
+    title = title,
+    content = content,
+    placement = placement, 
+    trigger = trigger, 
+    options = options,
+    ...
+  )
+}
+
+fileUpload <- function(id, label, tooltip = FALSE,
+                       tooltip_title = "", tooltip_content = "",
+                       tooltip_placement = "right", tooltip_trigger = "focus",
+                       tooltip_options = list(container = "body"),
+                       tooltip_icon_btn = icon("question"),
+                       tooltip_style = "default", tooltip_size = "extra-small",
+                       tooltip_margin = 6) {
   ##### Function Description ######
   # function to upload files (.csv, .txt, .rds)
   # 
@@ -26,10 +78,19 @@ fileUpload <- function(id, label) {
     id <- paste0("file_", id)
   }
   
-  list(
+  label <- paste(label, "(.csv, .rds, .txt)")
+  if (tooltip) {
+    label <- addTooltipBtn(tooltip_id = id, label = label, 
+                           icon_btn = tooltip_icon_btn, 
+                           style = tooltip_style, 
+                           size = tooltip_size,
+                           margin = tooltip_margin)
+  }
+  
+  out <- list(
     fileInput(
       inputId = id, 
-      label = paste(label, "(.csv, .rds, .txt)"), 
+      label = label, 
       multiple = FALSE, accept = c(".rds", ".csv", ".txt")
     ),
     conditionalPanel(
@@ -54,6 +115,19 @@ fileUpload <- function(id, label) {
       )
     )
   )
+  
+  if (tooltip) {
+    out <- c(out,
+             list(
+               addTooltipPopover(tooltip_id = id, 
+                                 title = tooltip_title, 
+                                 content = tooltip_content, 
+                                 placement = tooltip_content, 
+                                 trigger = tooltip_trigger, 
+                                 options = tooltip_options)
+             ))
+  }
+  return(out)
 }
 
 varInput <- function(id, label, choices, 
@@ -215,7 +289,7 @@ radioBtns <- function(id, label, choices, selected = NULL,
 
 checkbox <- function(id, label, value = FALSE, 
                       status = "info", animation = "jelly",
-                      icon_btn = icon("check"), ...) {
+                      icon_btn = icon("check"), bigger = TRUE, ...) {
   ##### Function Description ######
   # wrapper to prettyCheckbox() 
   # 
@@ -552,11 +626,11 @@ plotLocalStabilityRFOptions <- function(id) {
   list(
     fileUpload(
       id = paste0("vargroups_", id), 
-      label = "Variable Groups"
+      label = "Variable Groups",
+      tooltip = TRUE, 
+      tooltip_title = "Variable Groups",
+      tooltip_content = "Please upload a data frame with two columns named 'feature' and 'group' that maps each feature to a larger super-feature group."
     ),
-    # bsTooltip(id = "file_vargroups_lstab", 
-    #           title = "A data frame mapping with two columns 'Feature' and 'Group'", 
-    #           placement = "bottom", trigger = "hover", options = NULL),
     materialSwitch(
       paste0("first_", id), HTML("<b>Count First Split Only</b>"), 
       value = TRUE, status = "info"

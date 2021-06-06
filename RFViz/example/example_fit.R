@@ -50,9 +50,9 @@ saveRDS(irf_fit, "irf_fit.rds")
 ints <- irf_fit$interaction %>%
   filter(stability >= 0.5) %>%
   pull(int)
-epitree_fit <- runEpitree(Xtrain = Xtrain, 
-                          ytrain = as.numeric(as.character(ytrain)), 
-                          Xtest = Xtest, 
-                          ytest = as.numeric(as.character(ytest)), 
-                          ints = ints, B = 100)
+epitree_fit <- epitree(Xtrain = Xtrain, 
+                       ytrain = as.numeric(as.character(ytrain)), 
+                       Xtest = Xtest, 
+                       ytest = as.numeric(as.character(ytest)), 
+                       ints = ints, B = 100)
 saveRDS(epitree_fit, "epitree_fit.rds")

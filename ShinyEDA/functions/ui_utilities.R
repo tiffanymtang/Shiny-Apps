@@ -221,7 +221,8 @@ submitBtn <- function(id, label = "Submit", br = TRUE,
         color = color,
         ...
       ) %>%
-        div(style = div_style)
+        div(style = div_style),
+      br()
     )
   } else {
     out <- actionButton(
@@ -453,13 +454,13 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
     opts <- list(
       radioBtns(
         id = paste0("heatmap_cluster_x", id), 
-        label = "Cluster x by",
-        choices = c("Hierarchical Clustering", "None")
+        label = "Organize x by",
+        choices = c("Hierarchical Clustering", "Variable Order", "None")
       ),
       radioBtns(
         id = paste0("heatmap_cluster_y", id), 
-        label = "Cluster y by",
-        choices = c("Hierarchical Clustering", "None")
+        label = "Organize y by",
+        choices = c("Hierarchical Clustering", "Variable Order", "None")
       ),
       conditionalPanel(
         paste0("input.heatmap_cluster_x", id,
@@ -471,6 +472,22 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
           choices = c("ward.D", "ward.D2", "single", "complete", 
                       "average", "mcquitty", "median", "centroid"),
           selected = "ward.D"
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_x", id, " == 'Variable Order'"),
+        varInput(
+          id = paste0("ordervar_x_heatmap", id), 
+          label = "Order X by:",
+          choices = NULL
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_y", id, " == 'Variable Order'"),
+        varInput(
+          id = paste0("ordervar_y_heatmap", id), 
+          label = "Order Y by:",
+          choices = NULL
         )
       ),
       radioBtns(
@@ -501,13 +518,13 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
     opts1 <- list(
       radioBtns(
         id = paste0("heatmap_cluster_x", id), 
-        label = "Cluster x by",
-        choices = c("Hierarchical Clustering", "None")
+        label = "Organize x by",
+        choices = c("Hierarchical Clustering", "Variable Order", "None")
       ),
       radioBtns(
         id = paste0("heatmap_cluster_y", id), 
-        label = "Cluster y by",
-        choices = c("Hierarchical Clustering", "None")
+        label = "Organize y by",
+        choices = c("Hierarchical Clustering", "Variable Order", "None")
       ),
       conditionalPanel(
         paste0("input.heatmap_cluster_x", id,
@@ -519,6 +536,22 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
           choices = c("ward.D", "ward.D2", "single", "complete", 
                       "average", "mcquitty", "median", "centroid"),
           selected = "ward.D"
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_x", id, " == 'Variable Order'"),
+        varInput(
+          id = paste0("ordervar_x_heatmap", id), 
+          label = "Order X by:",
+          choices = NULL
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_y", id, " == 'Variable Order'"),
+        varInput(
+          id = paste0("ordervar_y_heatmap", id), 
+          label = "Order Y by:",
+          choices = NULL
         )
       )
     )

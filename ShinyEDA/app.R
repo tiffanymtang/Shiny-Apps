@@ -215,6 +215,12 @@ ui <- fluidPage(
         checkboxGroup(id = "heatmap_options", label = "Additional Options:",
                       choices = c("Center", "Scale"), selected = NULL),
         
+        # grouping variables
+        varInput(id = "groupvar_x_heatmap", label = "X Grouping Variable:",
+                 choices = NULL),
+        varInput(id = "groupvar_y_heatmap", label = "Y Grouping Variable:",
+                 choices = NULL),
+        
         submitBtn(id = "submit_heatmap")
       ),
     
@@ -756,6 +762,13 @@ server <- function(input, output, session) {
                       min = 0, max = length(setdiff(num_vars, const_vars)))
     updateSliderInput(session, "p_heatmap_rows",
                       value = 0, min = 0, max = nrow(data))
+    updatePickerInput(session, "groupvar_x_heatmap", 
+                      choices = c("None", rownames(data)))
+    updatePickerInput(session, "groupvar_y_heatmap", choices = c("None", vars))
+    updatePickerInput(session, "ordervar_x_heatmap", 
+                      choices = c("None", rownames(data)))
+    updatePickerInput(session, "ordervar_y_heatmap", 
+                      choices = c("None", vars))
     updatePickerInput(session, "color_basic", choices = c("None", vars))
     updatePickerInput(session, "color_pairs", choices = vars)
     updatePickerInput(session, "color_pca", choices = vars)
@@ -1821,7 +1834,35 @@ server <- function(input, output, session) {
       }
     }
     
+    if (input$heatmap_cluster_x == "Variable Order") {
+      if (!(input$ordervar_x_heatmap %in% c("None", ""))) {
+        data <- data[, order(data[input$ordervar_x_heatmap, ])]
+      }
+    }
+    if (input$heatmap_cluster_y == "Variable Order") {
+      if (!(input$ordervar_y_heatmap %in% c("None", ""))) {
+        data <- data[order(data[, input$ordervar_y_heatmap]), ]
+      }
+    }
+    
     data
+  })
+  groupVarsHeatmap <- reactive({
+    data <- dataInput()
+    ht_data <- heatmapData()
+    if (!(input$groupvar_x_heatmap %in% c("None", ""))) {
+      x.groups <- as.numeric(data[input$groupvar_x_heatmap, colnames(ht_data)])
+    } else {
+      x.groups <- NULL
+    }
+    if (!(input$groupvar_y_heatmap %in% c("None", ""))) {
+      y.groups <- data[rownames(ht_data), input$groupvar_y_heatmap]
+    } else {
+      y.groups <- NULL
+    }
+    
+    list(x.groups = x.groups,
+         y.groups = y.groups)
   })
   
   # plot heatmap
@@ -1830,12 +1871,14 @@ server <- function(input, output, session) {
     req(input$height_heatmap > 0)
     
     heatmap_data <- heatmapData()
+    group_vars <- groupVarsHeatmap()
     
     args_out <- getHeatmapArgs(input = input)
     
     plt <- plotHclustHeatmap(
       X = heatmap_data, 
-      # y.groups = y.groups,
+      y.groups = group_vars$y.groups,
+      x.groups = group_vars$x.groups,
       clust.x = args_out$clust.x,
       clust.y = args_out$clust.y,
       linkage.x = args_out$linkage.x,
@@ -1882,7 +1925,7 @@ server <- function(input, output, session) {
     } else {
       flag <- FALSE
     }
-    print('hi')
+    
     if (flag) {
       out <- h4("Missing inputs. Please select samples to plot and other required inputs in left sidebar.")
     } else {

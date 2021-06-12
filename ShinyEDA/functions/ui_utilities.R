@@ -490,6 +490,26 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
           choices = NULL
         )
       ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_x", id,
+               " == 'Hierarchical Clustering' & (input.groupvar_x_heatmap", id,
+               ".length > 0) & (input.groupvar_x_heatmap", id, "!== 'None')"),
+        materialSwitch(
+          paste0("heatmap_cluster_x_wi", id),
+          HTML("<b>Cluster within X Groups</b>"), 
+          value = TRUE, status = "info"
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_y", id,
+               " == 'Hierarchical Clustering' & ",
+               isnull(paste0("input.groupvar_y_heatmap", id))),
+        materialSwitch(
+          paste0("heatmap_cluster_y_wi", id),
+          HTML("<b>Cluster within Y Groups</b>"), 
+          value = TRUE, status = "info"
+        )
+      ),
       radioBtns(
         id = paste0("color_theme_heatmap", id),
         label = "Color Theme",
@@ -552,6 +572,26 @@ plotHclustHeatmapOptions <- function(id, multicol = FALSE,
           id = paste0("ordervar_y_heatmap", id), 
           label = "Order Y by:",
           choices = NULL
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_x", id,
+               " == 'Hierarchical Clustering' & (input.groupvar_x_heatmap", id,
+               ".length > 0) & (input.groupvar_x_heatmap", id, "!== 'None')"),
+        materialSwitch(
+          paste0("heatmap_cluster_x_wi", id),
+          HTML("<b>Cluster within X Groups</b>"), 
+          value = TRUE, status = "info"
+        )
+      ),
+      conditionalPanel(
+        paste0("input.heatmap_cluster_y", id,
+               " == 'Hierarchical Clustering' & (input.groupvar_y_heatmap", id,
+               ".length > 0) & (input.groupvar_y_heatmap", id, "!== 'None')"),
+        materialSwitch(
+          paste0("heatmap_cluster_y_wi", id),
+          HTML("<b>Cluster within Y Groups</b>"), 
+          value = TRUE, status = "info"
         )
       )
     )

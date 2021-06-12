@@ -1850,6 +1850,7 @@ server <- function(input, output, session) {
   groupVarsHeatmap <- reactive({
     data <- dataInput()
     ht_data <- heatmapData()
+    
     if (!(input$groupvar_x_heatmap %in% c("None", ""))) {
       x.groups <- as.numeric(data[input$groupvar_x_heatmap, colnames(ht_data)])
     } else {
@@ -1881,6 +1882,8 @@ server <- function(input, output, session) {
       x.groups = group_vars$x.groups,
       clust.x = args_out$clust.x,
       clust.y = args_out$clust.y,
+      clust.x.wi.group = args_out$clust.x.wi,
+      clust.y.wi.group = args_out$clust.y.wi,
       linkage.x = args_out$linkage.x,
       linkage.y = args_out$linkage.y,
       option = args_out$option,

@@ -203,6 +203,8 @@ getHeatmapArgs <- function(input, id) {
       "Hierarchical Clustering",
     clust.y = input[[paste0("heatmap_cluster_y", id)]] == 
       "Hierarchical Clustering",
+    clust.x.wi.group = input[[paste0("heatmap_cluster_x_wi", id)]],
+    clust.y.wi.group = input[[paste0("heatmap_cluster_y_wi", id)]],
     linkage.x = input[[paste0("hclust_linkage_heatmap", id)]],
     linkage.y = input[[paste0("hclust_linkage_heatmap", id)]],
     option = viridis_option,

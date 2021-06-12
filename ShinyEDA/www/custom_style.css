@@ -118,6 +118,10 @@
   /*overflow: hidden; */
 }
 
+#main-panel {
+  min-height: 700px;
+}
+
 hr {
   border-top: 1px solid #95a5a6;
 }

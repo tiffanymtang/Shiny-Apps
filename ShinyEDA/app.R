@@ -90,7 +90,8 @@ ui <- fluidPage(
                          choices = colnames(data)),
         varInputMultiple(id = "color_pairs", label = "Color by: (max 2)",
                          choices = colnames(data), 
-                         maxOptions = 2, actionsBox = FALSE)
+                         maxOptions = 2, actionsBox = FALSE),
+        submitBtn(id = "submit_pairs")
       ),
       
       # dimension reduction: variable inputs -----------------------------------
@@ -162,7 +163,9 @@ ui <- fluidPage(
         conditionalPanel(
           "input.dimred_type == 'NMF'",
           numericInput("rank_nmf", "NMF Rank", value = 3, min = 1, step = 1)
-        )
+        ),
+        
+        submitBtn(id = "submit_dimred")
       ),
       
       # heatmaps: variable inputs ----------------------------------
@@ -210,7 +213,9 @@ ui <- fluidPage(
         
         # centering and scaling options
         checkboxGroup(id = "heatmap_options", label = "Additional Options:",
-                      choices = c("Center", "Scale"), selected = NULL)
+                      choices = c("Center", "Scale"), selected = NULL),
+        
+        submitBtn(id = "submit_heatmap")
       ),
     
       # correlation heatmap: variable inputs ----------------------------------
@@ -258,13 +263,9 @@ ui <- fluidPage(
         
         # correlation settings
         radioBtns(id = "cor_type", label = "Correlation Type", 
-                  choices = c("Pearson", "Kendall", "Spearman"))
-      ),
-      
-      # submit button ---------------------------------------------------
-      conditionalPanel(
-        "(input.tab !== 'summary') && (input.tab !== 'data_tab') && (input.tab !== 'basic')",
-        submitBtn(id = "submit")
+                  choices = c("Pearson", "Kendall", "Spearman")),
+        
+        submitBtn(id = "submit_cor")
       )
     ),
     
@@ -275,7 +276,7 @@ ui <- fluidPage(
         type = "tabs",
         id = "tab",
         # tab: Data Summary -------------------------------------------
-        tabPanel(
+        tabPanel( 
           "Data Summary", value = "summary",
           
           # data summary text -----------------------------------------------
@@ -284,7 +285,7 @@ ui <- fluidPage(
                           h4(htmlOutput("text_summary")) %>%
                             tagAppendAttributes(class = "box-border"),
                           tags$head(tags$style("#text_summary{line-height: 1.4em; min-height: 135px; display: flex; align-items: center;}"))),
-                   column(6, 
+                   column(6,
                           uiOutput("dtypes") %>%
                             tagAppendAttributes(class = "box-border") %>%
                             withSpinner(color = "#18bc9c"))),
@@ -1308,7 +1309,7 @@ server <- function(input, output, session) {
   })  
   
   ### pair plot: plot outputs -----------------------------------------------
-  makePairPlot <- eventReactive(input$submit, {
+  makePairPlot <- eventReactive(input$submit_pairs, {
     req(input$height_pairs)
     req(input$height_pairs > 0)
     req(input$vars_pairs)
@@ -1392,7 +1393,7 @@ server <- function(input, output, session) {
   get_max_pc <- reactive({
     max(input$max_pc_show_var, input$max_pc_heatmap)
   })
-  pca_plot_out <- eventReactive(input$submit, {
+  pca_plot_out <- eventReactive(input$submit_dimred, {
     req(input$pcs)
     
     data <- dataInput()
@@ -1586,7 +1587,7 @@ server <- function(input, output, session) {
   
   ## tsne/umap: plot outputs -------------------------------------------------
   # only perform tsne if selected and if data changed
-  tsne_out <- eventReactive(input$submit, {
+  tsne_out <- eventReactive(input$submit_dimred, {
     req(input$dimred_type == "tSNE")
     
     # only perform on selected numeric features
@@ -1601,7 +1602,7 @@ server <- function(input, output, session) {
   })
   
   # only perform umap if selected and if data changed
-  umap_out <- eventReactive(input$submit, {
+  umap_out <- eventReactive(input$submit_dimred, {
     req(input$dimred_type == "UMAP")
     
     # only perform on selected numeric features
@@ -1661,7 +1662,7 @@ server <- function(input, output, session) {
   })
   
   ## nmf: plot outputs -----------------------------------------------------
-  nmf_out <- eventReactive(input$submit, {
+  nmf_out <- eventReactive(input$submit_dimred, {
     req(input$dimred_type == "NMF")
     req(input$vars_dimred)
     
@@ -1824,7 +1825,7 @@ server <- function(input, output, session) {
   })
   
   # plot heatmap
-  makeHeatmapPlot <- eventReactive(input$submit, {
+  makeHeatmapPlot <- eventReactive(input$submit_heatmap, {
     req(input$height_heatmap)
     req(input$height_heatmap > 0)
     
@@ -1881,14 +1882,14 @@ server <- function(input, output, session) {
     } else {
       flag <- FALSE
     }
-    
+    print('hi')
     if (flag) {
       out <- h4("Missing inputs. Please select samples to plot and other required inputs in left sidebar.")
     } else {
       if (input$plottype_heatmap == "GGplot") {
         out <- plotOutput("heatmapPlot", height = "auto")  %>%
           withSpinner(color = "#18bc9c")
-      } else if (input$plottype_heatmap_eval == "Plotly") {
+      } else if (input$plottype_heatmap == "Plotly") {
         out <- plotlyOutput("heatmapPlotly", height = "100%")  %>%
           withSpinner(color = "#18bc9c")
       }
@@ -1928,7 +1929,7 @@ server <- function(input, output, session) {
   })
   
   # plot correlation heatmap
-  makeCorrelationHeatmapPlot <- eventReactive(input$submit, {
+  makeCorrelationHeatmapPlot <- eventReactive(input$submit_cor, {
     req(input$height_cor)
     req(input$height_cor > 0)
     

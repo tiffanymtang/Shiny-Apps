@@ -125,7 +125,8 @@ ui <- fluidPage(
         varInputMultiple(id = "vars_pairs", label = "Variables:", 
                          choices = NULL),
         varInputMultiple(id = "color_pairs", label = "Color by: (max 2)",
-                         choices = NULL, maxOptions = 2, actionsBox = FALSE)
+                         choices = NULL, maxOptions = 2, actionsBox = FALSE),
+        submitBtn(id = "submit_pairs")
       ),
       
       # rf evaluation: variable inputs ----------------------------------
@@ -151,32 +152,31 @@ ui <- fluidPage(
             "p_heatmap_eval_rows", "Number of Rows", 
             value = 0, min = 0, max = 150
           )
-        )
+        ),
+        
+        submitBtn(id = "submit_eval")
       ),
       
       # rf tree: variable inputs ----------------------------------
       conditionalPanel(
         "input.tab == 'tree'",
-        numericInput("tree_id", "Tree Index", value = 1, min = 1, max = 500)
+        numericInput("tree_id", "Tree Index", value = 1, min = 1, max = 500),
+        submitBtn(id = "submit_tree")
       ),
       
       # rf vimp: variable inputs ----------------------------------
       conditionalPanel(
         "input.tab == 'vimp'",
-        varInputMultiple(id = "vars_vimp", label = "Variables:", choices = NULL)
+        varInputMultiple(id = "vars_vimp", label = "Variables:", choices = NULL),
+        submitBtn(id = "submit_vimp")
       ),
       
       # rf interaction: variable inputs ----------------------------------
       conditionalPanel(
         "input.tab == 'ints'",
         varInputMultiple(id = "vars_int", label = "Interactions:",
-                         choices = NULL)
-      ),
-      
-      # submit button ----------------------------------------------------
-      conditionalPanel(
-        "(input.tab !== 'summary') && (input.tab !== 'basic')",
-        submitBtn(id = "submit")
+                         choices = NULL),
+        submitBtn(id = "submit_int")
       )
     ),
     
@@ -2126,7 +2126,7 @@ server <- function(input, output, session) {
   })  
   
   ### pair plot: plot outputs -----------------------------------------------
-  makePairPlot <- eventReactive(input$submit, {
+  makePairPlot <- eventReactive(input$submit_pairs, {
     req(input$height_pairs)
     req(input$height_pairs > 0)
     req(input$vars_pairs)
@@ -2511,7 +2511,7 @@ server <- function(input, output, session) {
     out
   })  
   
-  makeRFPredHeatmap <- eventReactive(input$submit | 
+  makeRFPredHeatmap <- eventReactive(input$submit_eval | 
                                        input$refresh_heatmap_eval |
                                        !is.null(input$plottype_heatmap_eval) |
                                        !is.null(input$show_heatmap_eval), {
@@ -2676,7 +2676,7 @@ server <- function(input, output, session) {
   })
   
   ### tree plot: plot outputs --------------------------------------------
-  makeTreePlot <- eventReactive(input$submit, {
+  makeTreePlot <- eventReactive(input$submit_tree, {
     req(input$height_tree)
     req(input$height_tree > 0)
     
@@ -2752,7 +2752,7 @@ server <- function(input, output, session) {
   })
   
   ### vimp: feature splits plot ouptuts ------------------------------------
-  makeRFSplits <- eventReactive(input$submit | 
+  makeRFSplits <- eventReactive(input$submit_vimp | 
                                   input$refresh_splits |
                                   !is.null(input$plottype_splits) |
                                   !is.null(input$datasplit_splits), {
@@ -2807,7 +2807,7 @@ server <- function(input, output, session) {
   })
 
   ### vimp: local stability plot ouptuts ------------------------------------
-  makeLocalStability <- eventReactive(input$submit | 
+  makeLocalStability <- eventReactive(input$submit_vimp | 
                                         input$refresh_lstab |
                                         !is.null(input$plottype_lstab) |
                                         !is.null(input$datasplit_lstab) |
@@ -2942,7 +2942,7 @@ server <- function(input, output, session) {
   
   ### vimp: local stability distribution plot ouptuts -------------------------
   makeLocalStabilityDistPlot <- eventReactive(
-    input$submit |
+    input$submit_vimp |
       input$refresh_lstab_dist |
       !is.null(input$plottype_lstab_dist) |
       !is.null(input$plotTypeLstab), 
@@ -3229,7 +3229,7 @@ server <- function(input, output, session) {
   })  
   
   ### int: local stability plot ouptuts ------------------------------------
-  makeIntLocalStability <- eventReactive(input$submit | 
+  makeIntLocalStability <- eventReactive(input$submit_int | 
                                            input$refresh_lstab_int |
                                            !is.null(input$plottype_lstab_int) |
                                            !is.null(input$datasplit_lstab_int) |
@@ -3374,7 +3374,7 @@ server <- function(input, output, session) {
   
   ### int: local stability distribution plot ouptuts -------------------------
   makeIntLocalStabilityDistPlot <- eventReactive(
-    input$submit |
+    input$submit_int |
       input$refresh_lstab_dist_int |
       !is.null(input$plottype_lstab_dist_int) |
       !is.null(input$plotTypeLstab_int), 
@@ -3679,7 +3679,7 @@ server <- function(input, output, session) {
   }) 
   
   ### int: interaction heatmap plot outputs -----------------------------------
-  makeIntHeatmap <- eventReactive(input$submit |
+  makeIntHeatmap <- eventReactive(input$submit_int |
                                     input$refresh_heatmap_int |
                                     !is.null(input$plottype_heatmap_int) |
                                     !is.null(input$datasplit_heatmap_int) |
